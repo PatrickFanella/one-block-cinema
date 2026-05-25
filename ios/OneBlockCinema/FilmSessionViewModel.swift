@@ -26,6 +26,11 @@ class FilmSessionViewModel {
         return session.prompts[currentPromptIndex]
     }
 
+    var currentPromptClip: FilmClip? {
+        guard let promptId = currentPrompt?.id else { return nil }
+        return activeSession?.clip(forPromptId: promptId)
+    }
+
     var hasNextPrompt: Bool {
         guard let session = activeSession else { return false }
         return currentPromptIndex < session.prompts.count - 1
@@ -78,21 +83,29 @@ class FilmSessionViewModel {
         saveCurrentSession()
     }
 
-    func addClip(from url: URL, forPromptId: UUID) {
+    @discardableResult
+    func addClip(from url: URL, forPromptId: UUID) throws -> FilmClip {
+        guard var session = activeSession else {
+            throw ClipImportError.noActiveSession
+        }
+
         let clip = FilmClip(
             promptId: forPromptId,
             fileURL: url,
             duration: videoDuration(for: url)
         )
-        activeSession?.clips.append(clip)
-        markCurrentPromptCompleted()
+
+        guard session.attachClip(clip) else {
+            throw ClipImportError.promptNotFound
+        }
+
+        activeSession = session
+        saveCurrentSession()
+        return clip
     }
 
     func removeClip(_ clip: FilmClip) {
-        activeSession?.clips.removeAll { $0.id == clip.id }
-        if let promptIndex = activeSession?.prompts.firstIndex(where: { $0.id == clip.promptId }) {
-            activeSession?.prompts[promptIndex].isCompleted = false
-        }
+        activeSession?.removeClip(clip)
         saveCurrentSession()
     }
 
@@ -173,6 +186,8 @@ class FilmSessionViewModel {
         guard let session = activeSession else { return }
         if let index = sessions.firstIndex(where: { $0.id == session.id }) {
             sessions[index] = session
+        } else {
+            sessions.insert(session, at: 0)
         }
         Task {
             await storage.saveSessions(sessions)
@@ -183,5 +198,22 @@ class FilmSessionViewModel {
         let asset = AVURLAsset(url: url)
         let duration = CMTimeGetSeconds(asset.duration)
         return duration.isNaN ? 0 : duration
+    }
+}
+
+nonisolated enum ClipImportError: LocalizedError, Sendable {
+    case noActiveSession
+    case promptNotFound
+    case noVideoSelected
+
+    var errorDescription: String? {
+        switch self {
+        case .noActiveSession:
+            return "Start or resume a film before importing clips."
+        case .promptNotFound:
+            return "This clip could not be matched to the selected shot prompt."
+        case .noVideoSelected:
+            return "No video was selected. Choose a clip from your library to attach it to this shot."
+        }
     }
 }
