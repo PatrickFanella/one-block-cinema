@@ -2,6 +2,7 @@
 
 ## Product/implementation gaps
 
+- Focused audit: `docs/codebase/GENERATED_APP_AUDIT.md` documents implemented, partial, missing, and overpromised behavior with file references and P0 blockers.
 - Generated app is not production complete.
 - Camera path appears placeholder-like and needs real implementation or scope cut.
 - Preview/export UI may overpromise compared with actual export behavior.
