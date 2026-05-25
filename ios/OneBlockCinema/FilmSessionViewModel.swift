@@ -40,9 +40,14 @@ class FilmSessionViewModel {
     }
 
     func startNewSession(theme: FilmTheme) {
-        let prompts = PromptGenerator.generatePrompts(for: theme)
+        let template = FilmTemplate.template(for: theme)
+        let prompts = template.map(PromptGenerator.generatePrompts) ?? PromptGenerator.generatePrompts(for: theme)
         let session = FilmSession(
+            templateId: template?.id,
             theme: theme,
+            aspectRatio: template?.aspectRatio,
+            durationTargetSeconds: template?.durationTargetSeconds,
+            guidance: template?.guidance,
             prompts: prompts,
             title: "\(theme.displayName) — \(Date().formatted(date: .abbreviated, time: .shortened))"
         )

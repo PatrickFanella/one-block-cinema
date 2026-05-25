@@ -55,7 +55,9 @@ Help users plan, shoot/import, assemble, export, share, and get feedback on temp
 ## Template model
 
 - Launch target: 10 templates.
-- Templates define duration target, aspect ratio, shot count, prompt copy, and assembly guidance.
+- Templates define stable id, title, outcome, duration target, aspect ratio, shot prompts, and capture/assembly/export guidance.
+- Template records are bundled for offline local use; created projects snapshot the prompts and guidance needed to resume without network access.
+- Contract: `docs/technical/TEMPLATE_SCHEMA.md`.
 - Output length depends on template but must not exceed 180 seconds in v1.
 
 ## Community model

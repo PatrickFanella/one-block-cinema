@@ -2,7 +2,11 @@ import Foundation
 
 nonisolated struct FilmSession: Identifiable, Codable, Sendable {
     let id: UUID
+    let templateId: String?
     let theme: FilmTheme
+    let aspectRatio: TemplateAspectRatio?
+    let durationTargetSeconds: TemplateDurationTarget?
+    let guidance: TemplateGuidance?
     var prompts: [ShotPrompt]
     var clips: [FilmClip]
     var pacingStyle: PacingStyle
@@ -14,7 +18,11 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
 
     init(
         id: UUID = UUID(),
+        templateId: String? = nil,
         theme: FilmTheme,
+        aspectRatio: TemplateAspectRatio? = nil,
+        durationTargetSeconds: TemplateDurationTarget? = nil,
+        guidance: TemplateGuidance? = nil,
         prompts: [ShotPrompt] = [],
         clips: [FilmClip] = [],
         pacingStyle: PacingStyle = .rhythmic,
@@ -25,7 +33,11 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
         title: String = ""
     ) {
         self.id = id
+        self.templateId = templateId
         self.theme = theme
+        self.aspectRatio = aspectRatio
+        self.durationTargetSeconds = durationTargetSeconds
+        self.guidance = guidance
         self.prompts = prompts
         self.clips = clips
         self.pacingStyle = pacingStyle

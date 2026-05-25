@@ -4,6 +4,7 @@
 
 - Align docs with actual codebase and MVP decisions.
 - Decide whether camera capture is real in v1 milestone or import-first.
+- Define launch template schema and map it to Swift models.
 - Remove or clearly label placeholder camera/export/editor paths.
 - Add basic unit tests for session lifecycle and prompt generation.
 - Keep `make verify` passing on Linux.
