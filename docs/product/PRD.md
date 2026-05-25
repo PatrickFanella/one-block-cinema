@@ -1,0 +1,103 @@
+# One-Block Cinema PRD
+
+## Product idea
+
+A smartphone filmmaking coach for people who want to learn to create well-structured short films.
+
+## Audience
+
+- Beginners with smartphones
+- Hobbyist filmmakers
+- Students/creators learning film structure
+- Future: community participants giving peer feedback
+
+## Core promise
+
+“Turn a smartphone into a step-by-step filmmaking coach for structured 1–3 minute shorts.”
+
+## MVP goal
+
+Help users plan, shoot/import, assemble, export, share, and get feedback on template-driven 1–3 minute short films.
+
+## MVP must-haves
+
+1. Login with email OTP plus Google/Apple.
+2. Ten film templates at launch.
+3. Step-by-step guided workflow from idea/template to shot sequence.
+4. Capture/import clips from phone.
+5. Assemble clips into template-driven shorts up to 180 seconds.
+6. Export/share to social platforms.
+7. Offline editing/export.
+8. Sync projects, drafts, and community activity.
+9. Daily and weekly challenges.
+10. Comments and peer/community feedback.
+
+## Explicitly not MVP
+
+- AI critique/coach feedback.
+- Paid subscriptions or gated templates.
+- Desktop/web editing.
+- Advanced color grading, audio mixing, or professional NLE features.
+- Marketplace/community monetization.
+
+## Default creation flow
+
+1. User logs in or resumes a synced/offline draft.
+2. User selects a template/challenge.
+3. App explains structure and target duration/aspect ratio.
+4. App presents shot-by-shot prompts.
+5. User records or imports each clip.
+6. User reviews assembly, reorders/trims where supported.
+7. App previews final short.
+8. User exports locally, shares externally, or publishes to community.
+9. Community feedback happens after publish; projects are private until publish.
+
+## Template model
+
+- Launch target: 10 templates.
+- Templates define duration target, aspect ratio, shot count, prompt copy, and assembly guidance.
+- Output length depends on template but must not exceed 180 seconds in v1.
+
+## Community model
+
+- Default visibility: private until publish.
+- Profiles: user-editable.
+- Launch community features: challenges, comments, peer feedback.
+- Challenge cadence: daily and weekly.
+- Safety: mixed content with age gating.
+- Moderation: manual review, user reports, and automated filters.
+
+## Account/sync model
+
+- Login required for sync and community.
+- Auth methods: email OTP, Google, Apple.
+- Sync scope: projects, drafts, profile, comments, challenge activity.
+- Offline editing/export must work when sync is unavailable.
+
+## Platform
+
+- MVP: iPhone app.
+- Web: not required for MVP except possible marketing/admin later.
+
+## Backend/AI
+
+- Backend required for auth, sync, community, challenges, comments, moderation, and age gating.
+- AI critique is planned for v2 and should not block v1.
+
+## Monetization
+
+- Free at launch.
+
+## Success metrics
+
+- Creation metric: completed/exported shorts per active user.
+- Learning metric: repeat template completion.
+- Community metric: challenge participation and useful feedback received.
+- Retention metric: weekly returning creators.
+
+## Open product decisions
+
+1. Exact 10 launch templates.
+2. First backend/auth provider.
+3. Social share/export targets and technical requirements.
+4. Age gate policy details and moderation thresholds.

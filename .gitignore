@@ -1,0 +1,56 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+
+# Open Pilot / agent state
+.open-pilot/
+.opencode/
+opencode-data/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Local data/cache
+data/
+tmp/
+.cache/
+
+# Node / generated web tooling
+node_modules/
+dist/
+build/
+coverage/
+
+# Swift / Xcode
+DerivedData/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcscmblueprint
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Expo/Rork generated local state
+.expo/

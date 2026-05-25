@@ -1,0 +1,9 @@
+{
+  "apps": [
+    {
+      "name": "One-Block Cinema",
+      "path": "ios",
+      "framework": "swift"
+    }
+  ]
+}
