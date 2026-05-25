@@ -57,6 +57,7 @@ Help users plan, shoot/import, assemble, export, share, and get feedback on temp
 - Launch target: 10 templates.
 - Templates define duration target, aspect ratio, shot count, prompt copy, and assembly guidance.
 - Output length depends on template but must not exceed 180 seconds in v1.
+- First production-shaped vertical-slice template: [`First Block Story`](templates/first-block-story.json), a 9:16 beginner micro-documentary with a 60–120 second duration target.
 
 ## Community model
 
