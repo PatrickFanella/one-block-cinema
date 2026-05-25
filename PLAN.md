@@ -3,7 +3,7 @@
 
 ## What You'll Get
 
-A dark, cinematic app that turns any walk into a short film. It generates shot-by-shot prompts, lets you record or import clips, auto-assembles them into a mini movie with titles and pacing, and lets you share your creation.
+A dark, cinematic app that turns any walk into a short film. It generates shot-by-shot prompts, lets you import clips for the MVP, auto-assembles them into a mini movie with titles and pacing, and lets you share your creation. Real in-app recording is post-MVP.
 
 ---
 
@@ -11,8 +11,8 @@ A dark, cinematic app that turns any walk into a short film. It generates shot-b
 
 - **Shot Prompt Generator** — Get a sequence of 5–7 creative filming directions (e.g. "Find one repeating pattern", "Record 5 seconds of ambient sound")
 - **5 Themed Modes** — Noir, Romance, Documentary, Horror, and Dream — each changes prompt language, visual style, and pacing
-- **Built-in Camera** — Record clips directly in the app with a cinematic viewfinder overlay
-- **Import Clips** — Bring in videos from your photo library
+- **Import Clips** — Bring in videos from your photo library for the MVP capture path
+- **Post-MVP Built-in Camera** — Record clips directly in the app with a cinematic viewfinder overlay after the import-first flow is verified
 - **Auto-Assembled Sequence** — The app arranges your clips in order with crossfade transitions and title cards
 - **Timeline Editor** — Reorder clips, trim start/end points, and toggle titles on/off
 - **Silent Film & Voiceover Diary Modes** — Apply a silent-film look (sepia + intertitles) or narration-style pacing
@@ -29,8 +29,8 @@ A dark, cinematic app that turns any walk into a short film. It generates shot-b
 - **Film-grain texture** — Subtle noise overlay on key screens for analog feel
 - **Glowing progress indicators** — Warm amber dots/bars showing shot completion
 - **Smooth spring animations** — Cards slide in as you advance through prompts
-- **Cinematic viewfinder** — Letterbox bars and crosshair overlay on the camera screen
-- **Rich symbol effects** — SF Symbol animations for recording state, mode switching
+- **Post-MVP cinematic viewfinder** — Letterbox bars and crosshair overlay on the camera screen
+- **Rich symbol effects** — SF Symbol animations for import progress and future recording state
 
 ---
 
@@ -40,7 +40,7 @@ A dark, cinematic app that turns any walk into a short film. It generates shot-b
 
 2. **Shot Sequence** — Full-screen prompt cards that reveal one at a time. Each card shows the shot direction with a themed icon. Swipe or tap to advance. Shows progress dots at the top.
 
-3. **Camera / Capture** — Cinematic viewfinder with letterbox bars. Record button with pulse animation while recording. Option to switch to photo library import. Each clip is tagged to its prompt.
+3. **Import / Capture** — Import clips from the photo library. Each clip is tagged to its prompt. Camera recording and cinematic viewfinder treatment are post-MVP.
 
 4. **Assembly / Timeline** — See all captured clips in order with thumbnails. Drag to reorder, tap to trim. Toggle title cards between clips. Choose pacing style (quick cuts, slow cinema, rhythmic).
 
