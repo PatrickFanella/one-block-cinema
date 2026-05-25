@@ -4,7 +4,7 @@
 
 - Focused audit: `docs/codebase/GENERATED_APP_AUDIT.md` documents implemented, partial, missing, and overpromised behavior with file references and P0 blockers.
 - Generated app is not production complete.
-- Camera path appears placeholder-like and needs real implementation or scope cut.
+- Camera path appears placeholder-like and is cut from MVP in favor of import-first capture.
 - Preview/export UI may overpromise compared with actual export behavior.
 - Edit styles, transitions, title cards, trimming, and reorder UX need validation.
 - Template count of 10 needs data-driven implementation to avoid hardcoded sprawl.
@@ -25,7 +25,8 @@
 ## Suggested first issues
 
 1. Add unit tests for prompt generation and session lifecycle.
-2. Decide/import-first vs real camera capture for MVP milestone.
+2. Implement and verify import-first prompt clip attachment.
 3. Define launch template schema and first 10 templates.
-4. Replace placeholder preview/export UX with verified behavior.
-5. Draft backend/auth/sync architecture before community implementation.
+4. Replace or clearly disable placeholder camera UX until a post-MVP camera issue.
+5. Replace placeholder preview/export UX with verified behavior.
+6. Draft backend/auth/sync architecture before community implementation.

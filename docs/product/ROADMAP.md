@@ -3,8 +3,8 @@
 ## Phase 0: Clean current generated app
 
 - Align docs with actual codebase and MVP decisions.
-- Decide whether camera capture is real in v1 milestone or import-first.
-- Remove or clearly label placeholder camera/export/editor paths.
+- Adopt import-first capture for the MVP milestone.
+- Remove, disable, or clearly label placeholder camera/export/editor paths.
 - Add basic unit tests for session lifecycle and prompt generation.
 - Keep `make verify` passing on Linux.
 
@@ -54,4 +54,5 @@
 - More templates and creator packs.
 - Advanced editing effects.
 - Web/admin tooling.
+- Real in-app camera recording and cinematic viewfinder overlays.
 - Monetization experiments if desired.
