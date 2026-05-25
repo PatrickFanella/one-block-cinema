@@ -55,6 +55,7 @@ struct PreviewExportView: View {
             Color.black
 
             if let session, !session.clips.isEmpty {
+                let orderedClips = session.clipsInPromptOrder
                 VStack(spacing: 16) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 4)
@@ -62,8 +63,8 @@ struct PreviewExportView: View {
                             .aspectRatio(16/9, contentMode: .fit)
 
                         VStack(spacing: 12) {
-                            if currentClipIndex < session.clips.count {
-                                let clip = session.clips[currentClipIndex]
+                            if currentClipIndex < orderedClips.count {
+                                let clip = orderedClips[currentClipIndex]
                                 Image(systemName: "film")
                                     .font(.system(size: 40))
                                     .foregroundStyle(theme.accentColor.opacity(0.4))
@@ -74,11 +75,10 @@ struct PreviewExportView: View {
                                         .foregroundStyle(theme.accentColor)
                                 }
 
-                                if clip.showTitle && !clip.titleText.isEmpty {
-                                    Text(clip.titleText)
-                                        .font(.system(.title3, design: .serif, weight: .medium))
-                                        .foregroundStyle(CinemaColors.warmWhite)
-                                }
+                                Text("Basic preview · no trim, titles, transitions, or soundtrack controls yet")
+                                    .font(.caption)
+                                    .foregroundStyle(CinemaColors.dimText)
+                                    .multilineTextAlignment(.center)
                             }
                         }
                     }
@@ -100,8 +100,9 @@ struct PreviewExportView: View {
     }
 
     private func timelineBar(_ session: FilmSession) -> some View {
+        let orderedClips = session.clipsInPromptOrder
         HStack(spacing: 3) {
-            ForEach(Array(session.clips.enumerated()), id: \.element.id) { index, _ in
+            ForEach(Array(orderedClips.enumerated()), id: \.element.id) { index, _ in
                 RoundedRectangle(cornerRadius: 2)
                     .fill(index == currentClipIndex ? CinemaColors.amber : CinemaColors.surfaceLight)
                     .frame(height: 4)
@@ -141,7 +142,7 @@ struct PreviewExportView: View {
                 }
 
                 Button {
-                    guard let session, currentClipIndex < session.clips.count - 1 else { return }
+                    guard let session, currentClipIndex < session.clipsInPromptOrder.count - 1 else { return }
                     withAnimation(.snappy) { currentClipIndex += 1 }
                 } label: {
                     Image(systemName: "forward.fill")
@@ -203,7 +204,7 @@ struct PreviewExportView: View {
                     stopAutoAdvance()
                     return
                 }
-                if currentClipIndex < session.clips.count - 1 {
+                if currentClipIndex < session.clipsInPromptOrder.count - 1 {
                     withAnimation(.easeInOut(duration: 0.5)) {
                         currentClipIndex += 1
                     }
