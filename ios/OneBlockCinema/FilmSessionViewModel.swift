@@ -17,8 +17,13 @@ class FilmSessionViewModel {
     var showPhotoPicker: Bool = false
     var showExportShare: Bool = false
 
-    private let storage = SessionStorage()
+    private let storage: SessionStorage
     private let exportService = VideoExportService()
+    private var pendingPersistenceTask: Task<Void, Never>?
+
+    init(storage: SessionStorage = SessionStorage()) {
+        self.storage = storage
+    }
 
     var currentPrompt: ShotPrompt? {
         guard let session = activeSession,
@@ -40,6 +45,11 @@ class FilmSessionViewModel {
     }
 
     func startNewSession(theme: FilmTheme) {
+        createDraft(theme: theme)
+    }
+
+    @discardableResult
+    func createDraft(theme: FilmTheme) -> FilmSession {
         let prompts = PromptGenerator.generatePrompts(for: theme)
         let session = FilmSession(
             theme: theme,
@@ -48,6 +58,9 @@ class FilmSessionViewModel {
         )
         activeSession = session
         currentPromptIndex = 0
+        upsertSession(session)
+        persistSessions()
+        return session
     }
 
     func resumeSession(_ session: FilmSession) {
@@ -150,31 +163,41 @@ class FilmSessionViewModel {
     func completeSession() {
         activeSession?.completedAt = Date()
         saveCurrentSession()
-        if let session = activeSession {
-            if let index = sessions.firstIndex(where: { $0.id == session.id }) {
-                sessions[index] = session
-            } else {
-                sessions.insert(session, at: 0)
-            }
-            Task {
-                await storage.saveSessions(sessions)
-            }
-        }
     }
 
     func deleteSession(_ session: FilmSession) {
         sessions.removeAll { $0.id == session.id }
-        Task {
-            await storage.saveSessions(sessions)
+        if activeSession?.id == session.id {
+            activeSession = nil
+            currentPromptIndex = 0
         }
+        persistSessions()
     }
 
     func saveCurrentSession() {
         guard let session = activeSession else { return }
+        upsertSession(session)
+        persistSessions()
+    }
+
+    func waitForPendingPersistence() async {
+        await pendingPersistenceTask?.value
+    }
+
+    private func upsertSession(_ session: FilmSession) {
         if let index = sessions.firstIndex(where: { $0.id == session.id }) {
             sessions[index] = session
+        } else {
+            sessions.insert(session, at: 0)
         }
-        Task {
+    }
+
+    private func persistSessions() {
+        let sessions = sessions
+        let storage = storage
+        let previousTask = pendingPersistenceTask
+        pendingPersistenceTask = Task {
+            await previousTask?.value
             await storage.saveSessions(sessions)
         }
     }
