@@ -3,6 +3,7 @@ import Foundation
 nonisolated struct FilmSession: Identifiable, Codable, Sendable {
     let id: UUID
     let theme: FilmTheme
+    let templateId: String?
     var prompts: [ShotPrompt]
     var clips: [FilmClip]
     var pacingStyle: PacingStyle
@@ -15,6 +16,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
     init(
         id: UUID = UUID(),
         theme: FilmTheme,
+        templateId: String? = nil,
         prompts: [ShotPrompt] = [],
         clips: [FilmClip] = [],
         pacingStyle: PacingStyle = .rhythmic,
@@ -26,6 +28,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
     ) {
         self.id = id
         self.theme = theme
+        self.templateId = templateId
         self.prompts = prompts
         self.clips = clips
         self.pacingStyle = pacingStyle
