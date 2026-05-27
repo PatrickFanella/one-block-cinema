@@ -1,15 +1,24 @@
 import Foundation
 
 actor SessionStorage {
-    private let sessionsKey = "saved_film_sessions"
+    private let userDefaults: UserDefaults
+    private let sessionsKey: String
+
+    init(
+        userDefaults: UserDefaults = .standard,
+        sessionsKey: String = "saved_film_sessions"
+    ) {
+        self.userDefaults = userDefaults
+        self.sessionsKey = sessionsKey
+    }
 
     func saveSessions(_ sessions: [FilmSession]) {
         guard let data = try? JSONEncoder().encode(sessions) else { return }
-        UserDefaults.standard.set(data, forKey: sessionsKey)
+        userDefaults.set(data, forKey: sessionsKey)
     }
 
     func loadSessions() -> [FilmSession] {
-        guard let data = UserDefaults.standard.data(forKey: sessionsKey),
+        guard let data = userDefaults.data(forKey: sessionsKey),
               let sessions = try? JSONDecoder().decode([FilmSession].self, from: data) else {
             return []
         }
