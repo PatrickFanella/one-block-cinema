@@ -15,10 +15,7 @@ struct AssemblyView: View {
                 clipsList
 
                 if let session, !session.clips.isEmpty {
-                    pacingSection
-                    editStyleSection
-                    ambientToggle
-
+                    limitationsSection
                     previewButton
                 }
             }
@@ -47,193 +44,154 @@ struct AssemblyView: View {
 
     private var clipsList: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Your Clips")
-                .font(.system(.headline, design: .serif))
-                .foregroundStyle(CinemaColors.warmWhite)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Basic Timeline")
+                    .font(.system(.headline, design: .serif))
+                    .foregroundStyle(CinemaColors.warmWhite)
 
-            if let session, session.clips.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "film")
-                        .font(.system(size: 36))
-                        .foregroundStyle(CinemaColors.surfaceLight)
-                    Text("No clips yet")
-                        .font(.subheadline)
-                        .foregroundStyle(CinemaColors.dimText)
-                    Text("Go back and capture some shots")
-                        .font(.caption)
-                        .foregroundStyle(CinemaColors.dimText.opacity(0.7))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 40)
+                Text("Clips play in the original shot-prompt order. Reordering, trimming, and transitions are not available yet.")
+                    .font(.caption)
+                    .foregroundStyle(CinemaColors.dimText)
+            }
+
+            if session == nil {
+                emptyTimelineState(
+                    icon: "film.stack",
+                    title: "No active film",
+                    message: "Start or resume a film before assembling clips."
+                )
+            } else if let session, session.clips.isEmpty {
+                emptyTimelineState(
+                    icon: "film",
+                    title: "No clips yet",
+                    message: "Capture or import clips from the shot prompts, then return here to review the assembly order."
+                )
             } else if let session {
-                ForEach(Array(session.clips.enumerated()), id: \.element.id) { index, clip in
-                    clipRow(clip, index: index)
+                ForEach(session.prompts.sorted { $0.index < $1.index }) { prompt in
+                    let promptClips = session.clipsInPromptOrder.filter { $0.promptId == prompt.id }
+                    if promptClips.isEmpty {
+                        timelineRow(prompt: prompt, clip: nil)
+                    } else {
+                        ForEach(promptClips) { clip in
+                            timelineRow(prompt: prompt, clip: clip)
+                        }
+                    }
+                }
+
+                ForEach(session.clipsInPromptOrder.filter { clip in
+                    !session.prompts.contains { $0.id == clip.promptId }
+                }) { clip in
+                    timelineRow(prompt: nil, clip: clip)
                 }
             }
         }
     }
 
-    private func clipRow(_ clip: FilmClip, index: Int) -> some View {
-        Button {
-            selectedClip = clip
-        } label: {
-            HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(CinemaColors.surfaceLight)
-                        .frame(width: 64, height: 44)
+    private func emptyTimelineState(icon: String, title: String, message: String) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 36))
+                .foregroundStyle(CinemaColors.surfaceLight)
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(CinemaColors.dimText)
+            Text(message)
+                .font(.caption)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(CinemaColors.dimText.opacity(0.7))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
+    }
 
-                    Image(systemName: "film")
-                        .font(.title3)
-                        .foregroundStyle(theme.accentColor.opacity(0.6))
-                }
+    @ViewBuilder
+    private func timelineRow(prompt: ShotPrompt?, clip: FilmClip?) -> some View {
+        let content = HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(clip == nil ? CinemaColors.surface.opacity(0.7) : CinemaColors.surfaceLight)
+                    .frame(width: 64, height: 44)
 
-                VStack(alignment: .leading, spacing: 3) {
-                    if let prompt = session?.prompts.first(where: { $0.id == clip.promptId }) {
-                        Text("Shot \(prompt.index + 1)")
-                            .font(.system(.caption2, design: .monospaced, weight: .bold))
-                            .foregroundStyle(theme.accentColor)
-                    }
+                Image(systemName: clip == nil ? "exclamationmark.triangle" : "film")
+                    .font(.title3)
+                    .foregroundStyle(clip == nil ? CinemaColors.dimText : theme.accentColor.opacity(0.6))
+            }
 
-                    Text(clip.duration > 0 ? String(format: "%.1fs", clip.duration) : "Imported clip")
-                        .font(.caption)
-                        .foregroundStyle(CinemaColors.dimText)
-                }
+            VStack(alignment: .leading, spacing: 3) {
+                Text(prompt.map { "Shot \($0.index + 1)" } ?? "Unmatched clip")
+                    .font(.system(.caption2, design: .monospaced, weight: .bold))
+                    .foregroundStyle(clip == nil ? CinemaColors.dimText : theme.accentColor)
 
-                Spacer()
+                Text(prompt?.direction ?? "This clip is not linked to a current prompt.")
+                    .font(.subheadline)
+                    .foregroundStyle(clip == nil ? CinemaColors.dimText : CinemaColors.warmWhite)
+                    .lineLimit(2)
 
-                if clip.showTitle {
-                    Image(systemName: "text.bubble.fill")
-                        .font(.caption)
-                        .foregroundStyle(CinemaColors.amberDim)
-                }
+                Text(clipStatusText(clip))
+                    .font(.caption)
+                    .foregroundStyle(CinemaColors.dimText)
+            }
 
+            Spacer()
+
+            if clip != nil {
                 Image(systemName: "chevron.right")
                     .font(.caption2)
                     .foregroundStyle(CinemaColors.surfaceLight)
             }
-            .padding(12)
-            .background(CinemaColors.surface)
-            .clipShape(.rect(cornerRadius: 12))
+        }
+        .padding(12)
+        .background(CinemaColors.surface)
+        .clipShape(.rect(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(clip == nil ? CinemaColors.surfaceLight.opacity(0.4) : .clear, lineWidth: 1)
+        )
+
+        if let clip {
+            Button {
+                selectedClip = clip
+            } label: {
+                content
+            }
+            .buttonStyle(.plain)
+        } else {
+            content
         }
     }
 
-    private var pacingSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Pacing")
+    private func clipStatusText(_ clip: FilmClip?) -> String {
+        guard let clip else { return "Missing clip — this shot will be skipped." }
+        return clip.duration > 0 ? String(format: "Clip ready · %.1fs", clip.duration) : "Clip ready · imported duration unavailable"
+    }
+
+    private var limitationsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("What this assembly can do")
                 .font(.system(.headline, design: .serif))
                 .foregroundStyle(CinemaColors.warmWhite)
 
-            HStack(spacing: 10) {
-                ForEach(PacingStyle.allCases) { style in
-                    pacingButton(style)
-                }
-            }
+            capabilityRow(icon: "checkmark.circle.fill", text: "Plays captured clips in shot-prompt order")
+            capabilityRow(icon: "checkmark.circle.fill", text: "Skips prompts that do not have clips yet")
+            capabilityRow(icon: "lock.fill", text: "Trim, reorder, transitions, title cards, and soundtrack controls are not built yet")
         }
+        .padding(14)
+        .background(CinemaColors.surface.opacity(0.8))
+        .clipShape(.rect(cornerRadius: 14))
     }
 
-    private func pacingButton(_ style: PacingStyle) -> some View {
-        let isSelected = session?.pacingStyle == style
-        return Button {
-            viewModel.setPacingStyle(style)
-        } label: {
-            VStack(spacing: 6) {
-                Image(systemName: style.icon)
-                    .font(.title3)
-                    .foregroundStyle(isSelected ? CinemaColors.amber : CinemaColors.dimText)
-                    .symbolEffect(.bounce, value: isSelected)
+    private func capabilityRow(icon: String, text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon)
+                .font(.caption)
+                .foregroundStyle(icon == "lock.fill" ? CinemaColors.dimText : CinemaColors.amber)
+                .padding(.top, 2)
 
-                Text(style.displayName)
-                    .font(.system(.caption2, design: .monospaced, weight: .medium))
-                    .foregroundStyle(isSelected ? CinemaColors.warmWhite : CinemaColors.dimText)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(isSelected ? CinemaColors.surface : CinemaColors.surface.opacity(0.5))
-            .clipShape(.rect(cornerRadius: 12))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? CinemaColors.amber.opacity(0.4) : .clear, lineWidth: 1)
-            )
-        }
-        .sensoryFeedback(.selection, trigger: isSelected)
-    }
+            Text(text)
+                .font(.caption)
+                .foregroundStyle(CinemaColors.dimText)
 
-    private var editStyleSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Style")
-                .font(.system(.headline, design: .serif))
-                .foregroundStyle(CinemaColors.warmWhite)
-
-            ForEach(EditStyle.allCases) { style in
-                editStyleRow(style)
-            }
-        }
-    }
-
-    private func editStyleRow(_ style: EditStyle) -> some View {
-        let isSelected = session?.editStyle == style
-        return Button {
-            viewModel.setEditStyle(style)
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: style.icon)
-                    .font(.title3)
-                    .foregroundStyle(isSelected ? CinemaColors.amber : CinemaColors.dimText)
-                    .frame(width: 32)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(style.displayName)
-                        .font(.system(.subheadline, design: .serif, weight: .medium))
-                        .foregroundStyle(isSelected ? CinemaColors.warmWhite : CinemaColors.dimText)
-                    Text(style.description)
-                        .font(.caption2)
-                        .foregroundStyle(CinemaColors.dimText.opacity(0.7))
-                }
-
-                Spacer()
-
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(CinemaColors.amber)
-                }
-            }
-            .padding(12)
-            .background(isSelected ? CinemaColors.surface : CinemaColors.surface.opacity(0.5))
-            .clipShape(.rect(cornerRadius: 12))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? CinemaColors.amber.opacity(0.3) : .clear, lineWidth: 1)
-            )
-        }
-    }
-
-    private var ambientToggle: some View {
-        Button {
-            viewModel.toggleAmbientSoundtrack()
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "waveform.circle.fill")
-                    .font(.title3)
-                    .foregroundStyle(session?.useAmbientSoundtrack == true ? CinemaColors.amber : CinemaColors.dimText)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Ambient Soundtrack")
-                        .font(.system(.subheadline, design: .serif, weight: .medium))
-                        .foregroundStyle(CinemaColors.warmWhite)
-                    Text("Use captured audio as background sound")
-                        .font(.caption2)
-                        .foregroundStyle(CinemaColors.dimText)
-                }
-
-                Spacer()
-
-                Image(systemName: session?.useAmbientSoundtrack == true ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(session?.useAmbientSoundtrack == true ? CinemaColors.amber : CinemaColors.surfaceLight)
-            }
-            .padding(12)
-            .background(CinemaColors.surface)
-            .clipShape(.rect(cornerRadius: 12))
+            Spacer(minLength: 0)
         }
     }
 
@@ -261,12 +219,10 @@ struct ClipDetailSheet: View {
     let clip: FilmClip
     @Bindable var viewModel: FilmSessionViewModel
     @Environment(\.dismiss) private var dismiss
-    @State private var titleText: String
 
     init(clip: FilmClip, viewModel: FilmSessionViewModel) {
         self.clip = clip
         self.viewModel = viewModel
-        _titleText = State(initialValue: clip.titleText)
     }
 
     var body: some View {
@@ -279,18 +235,9 @@ struct ClipDetailSheet: View {
                     LabeledContent("Created", value: clip.createdAt.formatted(date: .abbreviated, time: .shortened))
                 }
 
-                Section("Title Card") {
-                    Toggle("Show Title", isOn: Binding(
-                        get: { clip.showTitle },
-                        set: { viewModel.toggleClipTitle(clip); _ = $0 }
-                    ))
-
-                    if clip.showTitle {
-                        TextField("Title text", text: $titleText)
-                            .onChange(of: titleText) { _, newValue in
-                                viewModel.updateClipTitle(clip, title: newValue)
-                            }
-                    }
+                Section("Editing") {
+                    Text("Trim, reorder, transitions, title cards, and soundtrack controls are not available in this MVP slice.")
+                        .foregroundStyle(.secondary)
                 }
 
                 Section {

@@ -10,6 +10,8 @@ class FilmSessionViewModel {
     var currentPromptIndex: Int = 0
     var isRecording: Bool = false
     var isExporting: Bool = false
+    var exportProgress: Double = 0
+    var exportStatusMessage: String?
     var exportedVideoURL: URL?
     var errorMessage: String?
     var showError: Bool = false
@@ -17,8 +19,14 @@ class FilmSessionViewModel {
     var showPhotoPicker: Bool = false
     var showExportShare: Bool = false
 
-    private let storage = SessionStorage()
+    private let storage: SessionStorage
     private let exportService = VideoExportService()
+    private var pendingPersistenceTask: Task<Void, Never>?
+    private var activeExportID: UUID?
+
+    init(storage: SessionStorage = SessionStorage()) {
+        self.storage = storage
+    }
 
     var currentPrompt: ShotPrompt? {
         guard let session = activeSession,
@@ -45,20 +53,35 @@ class FilmSessionViewModel {
     }
 
     func startNewSession(theme: FilmTheme) {
-        let prompts = PromptGenerator.generatePrompts(for: theme)
+        createDraft(theme: theme)
+    }
+
+    @discardableResult
+    func createDraft(theme: FilmTheme) -> FilmSession {
+        let template = TemplateCatalog.template(for: theme)
+        let prompts = PromptGenerator.generatePrompts(for: template)
         let session = FilmSession(
             theme: theme,
+            templateId: template.id,
             prompts: prompts,
-            title: "\(theme.displayName) — \(Date().formatted(date: .abbreviated, time: .shortened))"
+            pacingStyle: template.assemblyGuidance.pacingStyle,
+            editStyle: template.assemblyGuidance.editStyle,
+            useAmbientSoundtrack: template.assemblyGuidance.useAmbientSoundtrack,
+            title: "\(template.displayName) — \(Date().formatted(date: .abbreviated, time: .shortened))"
         )
         activeSession = session
         currentPromptIndex = 0
+        resetExportState()
+        upsertSession(session)
+        persistSessions()
+        return session
     }
 
     func resumeSession(_ session: FilmSession) {
         activeSession = session
         let firstIncomplete = session.prompts.firstIndex(where: { !$0.isCompleted }) ?? 0
         currentPromptIndex = firstIncomplete
+        resetExportState()
     }
 
     func nextPrompt() {
@@ -94,7 +117,7 @@ class FilmSessionViewModel {
             fileURL: url,
             duration: videoDuration(for: url)
         )
-
+        resetExportState()
         guard session.attachClip(clip) else {
             throw ClipImportError.promptNotFound
         }
@@ -105,33 +128,39 @@ class FilmSessionViewModel {
     }
 
     func removeClip(_ clip: FilmClip) {
+        resetExportState()
         activeSession?.removeClip(clip)
         saveCurrentSession()
     }
 
     func reorderClips(from source: IndexSet, to destination: Int) {
+        resetExportState()
         activeSession?.clips.move(fromOffsets: source, toOffset: destination)
         saveCurrentSession()
     }
 
     func toggleClipTitle(_ clip: FilmClip) {
         guard let index = activeSession?.clips.firstIndex(where: { $0.id == clip.id }) else { return }
+        resetExportState()
         activeSession?.clips[index].showTitle.toggle()
         saveCurrentSession()
     }
 
     func updateClipTitle(_ clip: FilmClip, title: String) {
         guard let index = activeSession?.clips.firstIndex(where: { $0.id == clip.id }) else { return }
+        resetExportState()
         activeSession?.clips[index].titleText = title
         saveCurrentSession()
     }
 
     func setPacingStyle(_ style: PacingStyle) {
+        resetExportState()
         activeSession?.pacingStyle = style
         saveCurrentSession()
     }
 
     func setEditStyle(_ style: EditStyle) {
+        resetExportState()
         activeSession?.editStyle = style
         saveCurrentSession()
     }
@@ -143,19 +172,47 @@ class FilmSessionViewModel {
 
     func exportVideo() async {
         guard let session = activeSession, !session.clips.isEmpty else { return }
+        let plan = VideoExportLimits.plan(for: session.clips)
+        guard !plan.segments.isEmpty else {
+            errorMessage = ExportError.noExportableClips.localizedDescription
+            showError = true
+            return
+        }
+
         isExporting = true
-        defer { isExporting = false }
+        let exportID = UUID()
+        activeExportID = exportID
+        exportProgress = 0
+        exportedVideoURL = nil
+        exportStatusMessage = plan.wasTrimmedToMaximumDuration
+            ? "Export will trim at \(Self.formattedDuration(VideoExportLimits.maximumDuration))."
+            : "Preparing local export…"
+        defer {
+            isExporting = false
+            activeExportID = nil
+        }
 
         do {
             let url = try await exportService.exportAssembledVideo(
-                clips: session.clips,
+                clips: session.clipsInPromptOrder,
                 pacingStyle: session.pacingStyle,
-                editStyle: session.editStyle
+                editStyle: session.editStyle,
+                progressHandler: { [weak self] progress in
+                    Task { @MainActor in
+                        guard self?.activeExportID == exportID, self?.isExporting == true else { return }
+                        self?.exportProgress = min(max(progress, 0), 1)
+                        self?.exportStatusMessage = "Exporting… \(Int((self?.exportProgress ?? 0) * 100))%"
+                    }
+                }
             )
             exportedVideoURL = url
+            exportProgress = 1
+            exportStatusMessage = "Export complete. Opening share sheet…"
+            completeSession()
             showExportShare = true
         } catch {
             errorMessage = error.localizedDescription
+            exportStatusMessage = "Export failed."
             showError = true
         }
     }
@@ -163,33 +220,41 @@ class FilmSessionViewModel {
     func completeSession() {
         activeSession?.completedAt = Date()
         saveCurrentSession()
-        if let session = activeSession {
-            if let index = sessions.firstIndex(where: { $0.id == session.id }) {
-                sessions[index] = session
-            } else {
-                sessions.insert(session, at: 0)
-            }
-            Task {
-                await storage.saveSessions(sessions)
-            }
-        }
     }
 
     func deleteSession(_ session: FilmSession) {
         sessions.removeAll { $0.id == session.id }
-        Task {
-            await storage.saveSessions(sessions)
+        if activeSession?.id == session.id {
+            activeSession = nil
+            currentPromptIndex = 0
         }
+        persistSessions()
     }
 
     func saveCurrentSession() {
         guard let session = activeSession else { return }
+        upsertSession(session)
+        persistSessions()
+    }
+
+    func waitForPendingPersistence() async {
+        await pendingPersistenceTask?.value
+    }
+
+    private func upsertSession(_ session: FilmSession) {
         if let index = sessions.firstIndex(where: { $0.id == session.id }) {
             sessions[index] = session
         } else {
             sessions.insert(session, at: 0)
         }
-        Task {
+    }
+
+    private func persistSessions() {
+        let sessions = sessions
+        let storage = storage
+        let previousTask = pendingPersistenceTask
+        pendingPersistenceTask = Task {
+            await previousTask?.value
             await storage.saveSessions(sessions)
         }
     }
@@ -198,6 +263,21 @@ class FilmSessionViewModel {
         let asset = AVURLAsset(url: url)
         let duration = CMTimeGetSeconds(asset.duration)
         return duration.isNaN ? 0 : duration
+    }
+
+    private func resetExportState() {
+        guard !isExporting else { return }
+        activeExportID = nil
+        exportProgress = 0
+        exportStatusMessage = nil
+        exportedVideoURL = nil
+        showExportShare = false
+    }
+
+    private static func formattedDuration(_ duration: TimeInterval) -> String {
+        let minutes = Int(duration) / 60
+        let seconds = Int(duration) % 60
+        return seconds == 0 ? "\(minutes)m" : "\(minutes)m \(seconds)s"
     }
 }
 

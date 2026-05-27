@@ -3,6 +3,7 @@ import Foundation
 nonisolated struct FilmSession: Identifiable, Codable, Sendable {
     let id: UUID
     let theme: FilmTheme
+    let templateId: String?
     var prompts: [ShotPrompt]
     var clips: [FilmClip]
     var pacingStyle: PacingStyle
@@ -15,6 +16,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
     init(
         id: UUID = UUID(),
         theme: FilmTheme,
+        templateId: String? = nil,
         prompts: [ShotPrompt] = [],
         clips: [FilmClip] = [],
         pacingStyle: PacingStyle = .rhythmic,
@@ -26,6 +28,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
     ) {
         self.id = id
         self.theme = theme
+        self.templateId = templateId
         self.prompts = prompts
         self.clips = clips
         self.pacingStyle = pacingStyle
@@ -82,16 +85,21 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
     }
 
     private mutating func sortClipsByPromptOrder() {
-        let promptOrder = Dictionary(uniqueKeysWithValues: prompts.map { ($0.id, $0.index) })
-        clips.sort { first, second in
-            let firstIndex = promptOrder[first.promptId] ?? Int.max
-            let secondIndex = promptOrder[second.promptId] ?? Int.max
+        clips = clipsInPromptOrder
+    }
 
-            if firstIndex == secondIndex {
-                return first.createdAt < second.createdAt
+    var clipsInPromptOrder: [FilmClip] {
+        let promptPositions = Dictionary(uniqueKeysWithValues: prompts.map { ($0.id, $0.index) })
+
+        return clips.sorted { lhs, rhs in
+            let lhsPosition = promptPositions[lhs.promptId] ?? Int.max
+            let rhsPosition = promptPositions[rhs.promptId] ?? Int.max
+
+            if lhsPosition == rhsPosition {
+                return lhs.createdAt < rhs.createdAt
             }
 
-            return firstIndex < secondIndex
+            return lhsPosition < rhsPosition
         }
     }
 }

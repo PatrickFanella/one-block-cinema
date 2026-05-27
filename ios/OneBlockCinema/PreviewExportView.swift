@@ -10,6 +10,10 @@ struct PreviewExportView: View {
 
     private var session: FilmSession? { viewModel.activeSession }
     private var theme: FilmTheme { session?.theme ?? .documentary }
+    private var exportPlan: VideoExportPlan? {
+        guard let session else { return nil }
+        return VideoExportLimits.plan(for: session.clips)
+    }
 
     var body: some View {
         ZStack {
@@ -55,6 +59,7 @@ struct PreviewExportView: View {
             Color.black
 
             if let session, !session.clips.isEmpty {
+                let orderedClips = session.clipsInPromptOrder
                 VStack(spacing: 16) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 4)
@@ -62,8 +67,8 @@ struct PreviewExportView: View {
                             .aspectRatio(16/9, contentMode: .fit)
 
                         VStack(spacing: 12) {
-                            if currentClipIndex < session.clips.count {
-                                let clip = session.clips[currentClipIndex]
+                            if currentClipIndex < orderedClips.count {
+                                let clip = orderedClips[currentClipIndex]
                                 Image(systemName: "film")
                                     .font(.system(size: 40))
                                     .foregroundStyle(theme.accentColor.opacity(0.4))
@@ -74,11 +79,10 @@ struct PreviewExportView: View {
                                         .foregroundStyle(theme.accentColor)
                                 }
 
-                                if clip.showTitle && !clip.titleText.isEmpty {
-                                    Text(clip.titleText)
-                                        .font(.system(.title3, design: .serif, weight: .medium))
-                                        .foregroundStyle(CinemaColors.warmWhite)
-                                }
+                                Text("Basic preview · no trim, titles, transitions, or soundtrack controls yet")
+                                    .font(.caption)
+                                    .foregroundStyle(CinemaColors.dimText)
+                                    .multilineTextAlignment(.center)
                             }
                         }
                     }
@@ -100,8 +104,9 @@ struct PreviewExportView: View {
     }
 
     private func timelineBar(_ session: FilmSession) -> some View {
+        let orderedClips = session.clipsInPromptOrder
         HStack(spacing: 3) {
-            ForEach(Array(session.clips.enumerated()), id: \.element.id) { index, _ in
+            ForEach(Array(orderedClips.enumerated()), id: \.element.id) { index, _ in
                 RoundedRectangle(cornerRadius: 2)
                     .fill(index == currentClipIndex ? CinemaColors.amber : CinemaColors.surfaceLight)
                     .frame(height: 4)
@@ -117,6 +122,8 @@ struct PreviewExportView: View {
 
     private var controlsOverlay: some View {
         VStack(spacing: 16) {
+            exportStateCard
+
             HStack(spacing: 24) {
                 Button {
                     guard let session, currentClipIndex > 0 else { return }
@@ -141,7 +148,7 @@ struct PreviewExportView: View {
                 }
 
                 Button {
-                    guard let session, currentClipIndex < session.clips.count - 1 else { return }
+                    guard let session, currentClipIndex < session.clipsInPromptOrder.count - 1 else { return }
                     withAnimation(.snappy) { currentClipIndex += 1 }
                 } label: {
                     Image(systemName: "forward.fill")
@@ -152,7 +159,6 @@ struct PreviewExportView: View {
 
             HStack(spacing: 12) {
                 Button {
-                    viewModel.completeSession()
                     Task { await viewModel.exportVideo() }
                 } label: {
                     HStack(spacing: 6) {
@@ -171,7 +177,7 @@ struct PreviewExportView: View {
                     .background(CinemaColors.amber)
                     .clipShape(.rect(cornerRadius: 14))
                 }
-                .disabled(viewModel.isExporting || session?.clips.isEmpty == true)
+                .disabled(viewModel.isExporting || exportPlan?.segments.isEmpty != false)
             }
             .padding(.horizontal)
         }
@@ -184,6 +190,75 @@ struct PreviewExportView: View {
             )
             .ignoresSafeArea()
         )
+    }
+
+    private var exportStateCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: exportStateIcon)
+                    .foregroundStyle(exportStateTint)
+                Text(exportStateTitle)
+                    .font(.system(.caption, design: .monospaced, weight: .bold))
+                    .foregroundStyle(CinemaColors.warmWhite)
+                Spacer()
+                if let plan = exportPlan, plan.totalDuration > 0 {
+                    Text("\(formattedDuration(plan.totalDuration)) / \(formattedDuration(VideoExportLimits.maximumDuration))")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(CinemaColors.dimText)
+                }
+            }
+
+            ProgressView(value: viewModel.isExporting ? viewModel.exportProgress : exportPlanProgress)
+                .tint(exportStateTint)
+
+            Text(exportStateMessage)
+                .font(.caption2)
+                .foregroundStyle(CinemaColors.dimText)
+        }
+        .padding(12)
+        .background(CinemaColors.surface.opacity(0.9))
+        .clipShape(.rect(cornerRadius: 14))
+        .padding(.horizontal)
+    }
+
+    private var exportStateIcon: String {
+        if viewModel.isExporting { return "arrow.triangle.2.circlepath" }
+        if viewModel.exportedVideoURL != nil { return "checkmark.circle.fill" }
+        if exportPlan?.segments.isEmpty != false { return "exclamationmark.triangle.fill" }
+        if exportPlan?.wasTrimmedToMaximumDuration == true { return "scissors" }
+        return "film.stack"
+    }
+
+    private var exportStateTint: Color {
+        if viewModel.exportedVideoURL != nil { return .green }
+        if exportPlan?.segments.isEmpty != false { return .red }
+        return CinemaColors.amber
+    }
+
+    private var exportStateTitle: String {
+        if viewModel.isExporting { return "EXPORTING" }
+        if viewModel.exportedVideoURL != nil { return "READY TO SHARE" }
+        if exportPlan?.segments.isEmpty != false { return "NO EXPORTABLE CLIPS" }
+        if exportPlan?.wasTrimmedToMaximumDuration == true { return "DURATION GUARDED" }
+        return "LOCAL EXPORT READY"
+    }
+
+    private var exportStateMessage: String {
+        if let message = viewModel.exportStatusMessage { return message }
+        if exportPlan?.segments.isEmpty != false { return "Import at least one video clip with a readable duration before exporting." }
+        if exportPlan?.wasTrimmedToMaximumDuration == true { return "Your short will be trimmed to the 3-minute maximum for this template." }
+        return "Export combines your imported clips locally, then opens the share sheet."
+    }
+
+    private var exportPlanProgress: Double {
+        guard let plan = exportPlan else { return 0 }
+        return min(plan.totalDuration / VideoExportLimits.maximumDuration, 1)
+    }
+
+    private func formattedDuration(_ duration: TimeInterval) -> String {
+        let minutes = Int(duration) / 60
+        let seconds = Int(duration) % 60
+        return String(format: "%d:%02d", minutes, seconds)
     }
 
     private func togglePlayback() {
@@ -203,7 +278,7 @@ struct PreviewExportView: View {
                     stopAutoAdvance()
                     return
                 }
-                if currentClipIndex < session.clips.count - 1 {
+                if currentClipIndex < session.clipsInPromptOrder.count - 1 {
                     withAnimation(.easeInOut(duration: 0.5)) {
                         currentClipIndex += 1
                     }
