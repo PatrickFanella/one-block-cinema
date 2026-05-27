@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "id": "first-block-story",
+  "title": "First Block Story",
+  "subtitle": "Turn one familiar block into a clear beginning, middle, and ending.",
+  "outcome": "A 60- to 120-second micro-documentary that shows a place, follows one small change, and ends with a simple visual takeaway.",
+  "difficulty": "beginner",
+  "aspectRatio": "9:16",
+  "durationTargetSeconds": {
+    "min": 60,
+    "ideal": 90,
+    "max": 120
+  },
+  "tags": [
+    "documentary",
+    "one-block",
+    "beginner",
+    "vertical-slice"
+  ],
+  "shotPrompts": [
+    {
+      "id": "opening-wide-context",
+      "title": "Open with the whole block",
+      "structureRole": "beginning_context",
+      "direction": "Stand still and film a wide shot that shows where the story happens: the street, corner, path, or storefronts in one readable frame.",
+      "hint": "This is not just scenery. It tells the viewer, 'Here is our world before anything changes.' Hold long enough for someone to understand the place.",
+      "targetSeconds": 10
+    },
+    {
+      "id": "main-subject-action",
+      "title": "Choose one moving subject",
+      "structureRole": "beginning_subject",
+      "direction": "Pick one person, animal, vehicle, shadow, sign, or object in motion and follow it for a few seconds without zooming.",
+      "hint": "A story needs a focus. Keep the subject easy to track so the viewer knows what to care about.",
+      "targetSeconds": 12
+    },
+    {
+      "id": "closer-detail-clue",
+      "title": "Cut closer to a clue",
+      "structureRole": "middle_detail",
+      "direction": "Film a close detail that explains texture, mood, or routine: hands working, wheels turning, a door sign, cracked paint, passing feet.",
+      "hint": "Details make the middle feel specific. Choose something that answers, 'What is this place really like?'",
+      "targetSeconds": 10
+    },
+    {
+      "id": "sound-of-place",
+      "title": "Record the block's sound",
+      "structureRole": "middle_atmosphere",
+      "direction": "Hold the phone still and capture clean ambient sound from the block: traffic, birds, voices, footsteps, machines, wind, or silence.",
+      "hint": "Sound connects shots and helps the edit feel intentional. Avoid talking unless a real voice belongs to the scene.",
+      "targetSeconds": 8
+    },
+    {
+      "id": "small-change",
+      "title": "Find one small change",
+      "structureRole": "middle_turn",
+      "direction": "Film something that changes from the opening: a person leaves frame, a light shifts, a door opens, traffic clears, rain starts, or a worker finishes a task.",
+      "hint": "This is the turn. The change can be tiny, but it should make the viewer feel time passing.",
+      "targetSeconds": 15
+    },
+    {
+      "id": "reaction-or-result",
+      "title": "Show the result",
+      "structureRole": "ending_resolution",
+      "direction": "Film what the change leaves behind: an empty bench, a cleaner counter, a quieter corner, a new shadow, or the subject further away.",
+      "hint": "The ending should answer, 'What is different now?' Keep the frame simple.",
+      "targetSeconds": 15
+    },
+    {
+      "id": "final-held-image",
+      "title": "End on a held image",
+      "structureRole": "ending_final_frame",
+      "direction": "Choose one calm final frame and hold it without moving until it feels complete.",
+      "hint": "Do not add a new idea here. Let the viewer sit with the meaning of the block after the small change.",
+      "targetSeconds": 20
+    }
+  ],
+  "guidance": {
+    "structure": "Build a simple three-part film: establish the block, observe a small change, then show what the change leaves behind. Each shot should either orient, develop, turn, or resolve the story.",
+    "capture": "Shoot vertically for phone-first export. Hold shots steady, avoid fast pans, and use natural light. Capture at least one clean ambient sound clip to bridge the edit.",
+    "assembly": "Keep prompts in order. Trim the opening wide shot to orient quickly, let the small-change shot breathe the longest, and end on the held final image. Use straight cuts unless a cut feels confusing.",
+    "export": "Export as a private local draft first, then share only after review. Target 90 seconds and never exceed 120 seconds for this template."
+  }
+}

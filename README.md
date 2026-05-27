@@ -18,7 +18,7 @@ Current codebase:
 Planned MVP:
 
 - 10 guided short-film templates
-- step-by-step shot planning and capture/import flow
+- step-by-step shot planning and import-first clip flow
 - template-driven 1–3 minute export/share
 - login and sync for projects, drafts, and community activity
 - daily/weekly challenges, comments, and peer feedback

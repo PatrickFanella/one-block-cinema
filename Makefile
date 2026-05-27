@@ -1,12 +1,12 @@
 SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 
-.PHONY: help verify fmt lint test docs-check open-pilot-check secrets-check xcode-note
+.PHONY: help verify fmt lint test docs-check templates-check open-pilot-check secrets-check xcode-note
 
 help: ## Show commands
 	@awk 'BEGIN {FS = ":.*##"; printf "Commands:\n"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-verify: fmt lint test docs-check open-pilot-check secrets-check xcode-note ## Run all checks
+verify: fmt lint test docs-check templates-check open-pilot-check secrets-check xcode-note ## Run all checks
 
 fmt: ## Format files where repo tooling is available
 	@echo 'skip fmt: no Swift formatter configured yet'
@@ -27,6 +27,9 @@ docs-check: ## Verify required docs exist
 	@test -f docs/product/MVP_SCOPE.md
 	@test -f docs/technical/API_SPEC.md
 	@test -f docs/codebase/STACK.md
+
+templates-check: ## Validate product template data
+	@python3 scripts/validate_templates.py
 
 open-pilot-check: ## Verify Open Pilot templates exist
 	@test -f .gitea/ISSUE_TEMPLATE/open-pilot-task.yaml
