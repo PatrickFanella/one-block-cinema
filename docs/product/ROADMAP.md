@@ -3,6 +3,7 @@
 ## Phase 0: Clean current generated app
 
 - Align docs with actual codebase and MVP decisions.
+- Define launch template schema and map it to Swift models.
 - Adopt import-first capture for the MVP milestone.
 - Remove, disable, or clearly label placeholder camera/export/editor paths.
 - Add basic unit tests for session lifecycle and prompt generation.

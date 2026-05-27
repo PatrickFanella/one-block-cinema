@@ -63,6 +63,9 @@ class FilmSessionViewModel {
         let session = FilmSession(
             theme: theme,
             templateId: template.id,
+            aspectRatio: template.aspectRatio,
+            durationTarget: template.durationTarget,
+            assemblyGuidance: template.assemblyGuidance,
             prompts: prompts,
             pacingStyle: template.assemblyGuidance.pacingStyle,
             editStyle: template.assemblyGuidance.editStyle,

@@ -4,6 +4,9 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
     let id: UUID
     let theme: FilmTheme
     let templateId: String?
+    let aspectRatio: TemplateAspectRatio?
+    let durationTarget: TemplateDurationTarget?
+    let assemblyGuidance: TemplateAssemblyGuidance?
     var prompts: [ShotPrompt]
     var clips: [FilmClip]
     var pacingStyle: PacingStyle
@@ -17,6 +20,9 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
         id: UUID = UUID(),
         theme: FilmTheme,
         templateId: String? = nil,
+        aspectRatio: TemplateAspectRatio? = nil,
+        durationTarget: TemplateDurationTarget? = nil,
+        assemblyGuidance: TemplateAssemblyGuidance? = nil,
         prompts: [ShotPrompt] = [],
         clips: [FilmClip] = [],
         pacingStyle: PacingStyle = .rhythmic,
@@ -29,6 +35,9 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
         self.id = id
         self.theme = theme
         self.templateId = templateId
+        self.aspectRatio = aspectRatio
+        self.durationTarget = durationTarget
+        self.assemblyGuidance = assemblyGuidance
         self.prompts = prompts
         self.clips = clips
         self.pacingStyle = pacingStyle

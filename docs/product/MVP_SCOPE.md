@@ -18,6 +18,7 @@ An iPhone app where a beginner or hobbyist can choose a film template, follow gu
 - Template-defined aspect ratio and duration target.
 - Step-by-step prompt sequence.
 - Beginner-friendly film structure coaching.
+- Offline-compatible template contract documented in `docs/technical/TEMPLATE_SCHEMA.md`.
 
 ### Capture/import
 
