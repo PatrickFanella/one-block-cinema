@@ -11,6 +11,10 @@
 - `docs/` — product, technical, and codebase docs.
 - `ios/` — generated native iOS app.
 
+## Product content
+
+- `docs/product/templates/` — production-shaped launch template data and template field requirements.
+
 ## iOS app
 
 - `ios/OneBlockCinemaApp.swift` — SwiftUI app entry.
