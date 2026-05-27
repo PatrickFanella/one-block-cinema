@@ -164,7 +164,7 @@ class FilmSessionViewModel {
 
         do {
             let url = try await exportService.exportAssembledVideo(
-                clips: session.clips,
+                clips: session.clipsInPromptOrder,
                 pacingStyle: session.pacingStyle,
                 editStyle: session.editStyle,
                 progressHandler: { [weak self] progress in

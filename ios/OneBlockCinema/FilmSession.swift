@@ -48,4 +48,19 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
         guard !prompts.isEmpty else { return 0 }
         return Double(completedPromptCount) / Double(prompts.count)
     }
+
+    var clipsInPromptOrder: [FilmClip] {
+        let promptPositions = Dictionary(uniqueKeysWithValues: prompts.map { ($0.id, $0.index) })
+
+        return clips.sorted { lhs, rhs in
+            let lhsPosition = promptPositions[lhs.promptId] ?? Int.max
+            let rhsPosition = promptPositions[rhs.promptId] ?? Int.max
+
+            if lhsPosition == rhsPosition {
+                return lhs.createdAt < rhs.createdAt
+            }
+
+            return lhsPosition < rhsPosition
+        }
+    }
 }

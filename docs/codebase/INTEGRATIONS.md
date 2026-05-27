@@ -18,6 +18,7 @@
 
 ## Post-MVP integrations
 
+- Real in-app camera recording through iOS camera APIs.
 - AI critique provider wrapper.
 - Advanced analytics, if privacy-safe.
 - Web/admin tooling for moderation.
