@@ -17,14 +17,14 @@ A smartphone filmmaking coach for people who want to learn to create well-struct
 
 ## MVP goal
 
-Help users plan, shoot/import, assemble, export, share, and get feedback on template-driven 1–3 minute short films.
+Help users plan, import clips, assemble, export, share, and get feedback on template-driven 1–3 minute short films.
 
 ## MVP must-haves
 
 1. Login with email OTP plus Google/Apple.
 2. Ten film templates at launch.
 3. Step-by-step guided workflow from idea/template to shot sequence.
-4. Capture/import clips from phone.
+4. Import clips from the phone library and attach them to guided prompts.
 5. Assemble clips into template-driven shorts up to 180 seconds.
 6. Export/share to social platforms.
 7. Offline editing/export.
@@ -38,6 +38,7 @@ Help users plan, shoot/import, assemble, export, share, and get feedback on temp
 - Paid subscriptions or gated templates.
 - Desktop/web editing.
 - Advanced color grading, audio mixing, or professional NLE features.
+- Real in-app camera recording for the MVP milestone.
 - Marketplace/community monetization.
 
 ## Default creation flow
@@ -46,7 +47,7 @@ Help users plan, shoot/import, assemble, export, share, and get feedback on temp
 2. User selects a template/challenge.
 3. App explains structure and target duration/aspect ratio.
 4. App presents shot-by-shot prompts.
-5. User records or imports each clip.
+5. User imports each clip from the phone library.
 6. User reviews assembly, reorders/trims where supported.
 7. App previews final short.
 8. User exports locally, shares externally, or publishes to community.
@@ -59,6 +60,7 @@ Help users plan, shoot/import, assemble, export, share, and get feedback on temp
 - Template records are bundled for offline local use; created projects snapshot the prompts and guidance needed to resume without network access.
 - Contract: `docs/technical/TEMPLATE_SCHEMA.md`.
 - Output length depends on template but must not exceed 180 seconds in v1.
+- First production-shaped vertical-slice template: [`First Block Story`](templates/first-block-story.json), a 9:16 beginner micro-documentary with a 60–120 second duration target.
 
 ## Community model
 
@@ -103,3 +105,7 @@ Help users plan, shoot/import, assemble, export, share, and get feedback on temp
 2. First backend/auth provider.
 3. Social share/export targets and technical requirements.
 4. Age gate policy details and moderation thresholds.
+
+## Closed product decisions
+
+- MVP capture strategy: import-first; real in-app camera recording is post-MVP. See `docs/adr/0002-import-first-capture-mvp.md`.

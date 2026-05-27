@@ -2,7 +2,7 @@
 
 ## MVP definition
 
-An iPhone app where a beginner or hobbyist can choose a film template, follow guided shot prompts, capture/import clips, assemble a 1–3 minute short, export/share it, and optionally publish for community feedback.
+An iPhone app where a beginner or hobbyist can choose a film template, follow guided shot prompts, import clips, assemble a 1–3 minute short, export/share it, and optionally publish for community feedback.
 
 ## In scope
 
@@ -22,7 +22,7 @@ An iPhone app where a beginner or hobbyist can choose a film template, follow gu
 
 ### Capture/import
 
-- Record clips in app or import from library.
+- MVP decision: import-first. Users add clips from the iOS photo library.
 - Tag clips to template prompts.
 - Save drafts locally for offline work.
 
@@ -47,6 +47,7 @@ An iPhone app where a beginner or hobbyist can choose a film template, follow gu
 ## Out of scope
 
 - AI critique/feedback.
+- Real in-app camera recording, camera permission flows, cinematic viewfinder overlays, and device camera QA.
 - Paid subscriptions or freemium template gates.
 - Desktop/web editor.
 - Professional editing suite features.
@@ -58,7 +59,7 @@ An iPhone app where a beginner or hobbyist can choose a film template, follow gu
 - User can authenticate with at least one launch auth method before community/sync use.
 - User can create a project from a template.
 - User can complete a guided shot sequence.
-- User can record or import clips for prompts.
+- User can import library clips for prompts.
 - User can save and resume a draft offline.
 - User can assemble, preview, and export a short no longer than 180 seconds.
 - User can share/export to another app.
@@ -70,6 +71,6 @@ An iPhone app where a beginner or hobbyist can choose a film template, follow gu
 ## Risks
 
 - Auth + sync + community + offline export may be too large for first implementation pass.
-- Current generated app promises real camera/edit/export behavior that is only partly implemented.
+- Current generated app promises real camera/edit/export behavior that is only partly implemented; camera recording is explicitly post-MVP unless a later issue changes scope.
 - Community and mixed-content safety require policy and moderation before launch.
 - Template count of 10 may slow launch unless template format is simple and data-driven.

@@ -41,6 +41,11 @@ struct CaptureView: View {
             guard let item = newItems.first else { return }
             Task { await handlePickedVideo(item) }
         }
+        .alert("Import issue", isPresented: $viewModel.showError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(viewModel.errorMessage ?? "Try selecting a different video clip.")
+        }
     }
 
     private var topBar: some View {
@@ -94,6 +99,8 @@ struct CaptureView: View {
                 .foregroundStyle(CinemaColors.dimText)
                 .multilineTextAlignment(.center)
 
+            promptImportState
+
             Button {
                 showPhotoPicker = true
             } label: {
@@ -106,9 +113,45 @@ struct CaptureView: View {
                     .clipShape(Capsule())
             }
             .padding(.top, 8)
+            .disabled(viewModel.currentPrompt == nil || isProcessing)
+            .opacity(viewModel.currentPrompt == nil || isProcessing ? 0.5 : 1)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(white: 0.08))
+    }
+
+    @ViewBuilder
+    private var promptImportState: some View {
+        if let prompt = viewModel.currentPrompt {
+            VStack(spacing: 6) {
+                Text("Importing attaches to Shot \(prompt.index + 1)")
+                    .font(.caption)
+                    .foregroundStyle(CinemaColors.warmWhite)
+
+                if let clip = viewModel.currentPromptClip {
+                    Text(clip.duration > 0 ? "A clip is attached — importing replaces it." : "Imported clip attached — importing replaces it.")
+                        .font(.caption2)
+                        .foregroundStyle(CinemaColors.amber)
+                        .multilineTextAlignment(.center)
+                } else {
+                    Text("No clip attached to this prompt yet.")
+                        .font(.caption2)
+                        .foregroundStyle(CinemaColors.dimText)
+                }
+            }
+            .padding(.horizontal, 16)
+        } else {
+            VStack(spacing: 6) {
+                Text("No shot selected")
+                    .font(.caption)
+                    .foregroundStyle(CinemaColors.warmWhite)
+                Text("Go back and choose a prompt before importing a clip.")
+                    .font(.caption2)
+                    .foregroundStyle(CinemaColors.dimText)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.horizontal, 16)
+        }
     }
 
     private var letterboxOverlay: some View {
@@ -153,6 +196,8 @@ struct CaptureView: View {
                     .foregroundStyle(.white.opacity(0.7))
                     .frame(width: 50, height: 50)
             }
+            .disabled(viewModel.currentPrompt == nil || isProcessing)
+            .opacity(viewModel.currentPrompt == nil || isProcessing ? 0.5 : 1)
 
             recordButton
 
@@ -186,22 +231,36 @@ struct CaptureView: View {
             }
         }
         .onAppear { recordingPulse = true }
+        .disabled(true)
+        .opacity(0.55)
     }
 
     private func handlePickedVideo(_ item: PhotosPickerItem) async {
         isProcessing = true
-        defer { isProcessing = false }
+        defer {
+            isProcessing = false
+            selectedItems.removeAll()
+        }
 
-        guard let promptId = viewModel.currentPrompt?.id else { return }
+        guard let promptId = viewModel.currentPrompt?.id else {
+            showImportError(ClipImportError.noActiveSession)
+            return
+        }
 
         do {
-            guard let movie = try await item.loadTransferable(type: VideoTransferable.self) else { return }
-            viewModel.addClip(from: movie.url, forPromptId: promptId)
+            guard let movie = try await item.loadTransferable(type: VideoTransferable.self) else {
+                throw ClipImportError.noVideoSelected
+            }
+            try viewModel.addClip(from: movie.url, forPromptId: promptId)
             dismiss()
         } catch {
-            viewModel.errorMessage = "Failed to import video: \(error.localizedDescription)"
-            viewModel.showError = true
+            showImportError(error)
         }
+    }
+
+    private func showImportError(_ error: Error) {
+        viewModel.errorMessage = "Failed to import video: \(error.localizedDescription)"
+        viewModel.showError = true
     }
 }
 
@@ -212,11 +271,29 @@ nonisolated struct VideoTransferable: Transferable {
         FileRepresentation(contentType: .movie) { video in
             SentTransferredFile(video.url)
         } importing: { received in
-            let destination = FileManager.default.temporaryDirectory.appendingPathComponent(
-                "clip_\(UUID().uuidString).mov"
-            )
+            let destination = try ClipFileStore.makeImportedClipURL(for: received.file)
             try FileManager.default.copyItem(at: received.file, to: destination)
             return VideoTransferable(url: destination)
         }
+    }
+}
+
+nonisolated enum ClipFileStore {
+    static func makeImportedClipURL(for sourceURL: URL) throws -> URL {
+        let directory = try importedClipsDirectory()
+        let fileExtension = sourceURL.pathExtension.isEmpty ? "mov" : sourceURL.pathExtension
+        return directory.appendingPathComponent("clip_\(UUID().uuidString).\(fileExtension)")
+    }
+
+    private static func importedClipsDirectory() throws -> URL {
+        let baseURL = try FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        let directory = baseURL.appendingPathComponent("ImportedClips", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
     }
 }

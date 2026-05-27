@@ -2,11 +2,11 @@ import Foundation
 
 nonisolated struct FilmSession: Identifiable, Codable, Sendable {
     let id: UUID
-    let templateId: String?
     let theme: FilmTheme
+    let templateId: String?
     let aspectRatio: TemplateAspectRatio?
-    let durationTargetSeconds: TemplateDurationTarget?
-    let guidance: TemplateGuidance?
+    let durationTarget: TemplateDurationTarget?
+    let assemblyGuidance: TemplateAssemblyGuidance?
     var prompts: [ShotPrompt]
     var clips: [FilmClip]
     var pacingStyle: PacingStyle
@@ -18,11 +18,11 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
 
     init(
         id: UUID = UUID(),
-        templateId: String? = nil,
         theme: FilmTheme,
+        templateId: String? = nil,
         aspectRatio: TemplateAspectRatio? = nil,
-        durationTargetSeconds: TemplateDurationTarget? = nil,
-        guidance: TemplateGuidance? = nil,
+        durationTarget: TemplateDurationTarget? = nil,
+        assemblyGuidance: TemplateAssemblyGuidance? = nil,
         prompts: [ShotPrompt] = [],
         clips: [FilmClip] = [],
         pacingStyle: PacingStyle = .rhythmic,
@@ -33,11 +33,11 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
         title: String = ""
     ) {
         self.id = id
-        self.templateId = templateId
         self.theme = theme
+        self.templateId = templateId
         self.aspectRatio = aspectRatio
-        self.durationTargetSeconds = durationTargetSeconds
-        self.guidance = guidance
+        self.durationTarget = durationTarget
+        self.assemblyGuidance = assemblyGuidance
         self.prompts = prompts
         self.clips = clips
         self.pacingStyle = pacingStyle
@@ -52,6 +52,38 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
         !clips.isEmpty && prompts.allSatisfy(\.isCompleted)
     }
 
+    func clip(forPromptId promptId: UUID) -> FilmClip? {
+        clips.first { $0.promptId == promptId }
+    }
+
+    mutating func attachClip(_ clip: FilmClip) -> Bool {
+        guard let promptIndex = prompts.firstIndex(where: { $0.id == clip.promptId }) else {
+            return false
+        }
+
+        if let clipIndex = clips.firstIndex(where: { $0.promptId == clip.promptId }) {
+            clips[clipIndex] = clip
+        } else {
+            clips.append(clip)
+        }
+
+        prompts[promptIndex].isCompleted = true
+        sortClipsByPromptOrder()
+        return true
+    }
+
+    mutating func removeClip(_ clip: FilmClip) {
+        clips.removeAll { $0.id == clip.id }
+
+        if clips.contains(where: { $0.promptId == clip.promptId }) {
+            return
+        }
+
+        if let promptIndex = prompts.firstIndex(where: { $0.id == clip.promptId }) {
+            prompts[promptIndex].isCompleted = false
+        }
+    }
+
     var completedPromptCount: Int {
         prompts.filter(\.isCompleted).count
     }
@@ -59,5 +91,24 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
     var progress: Double {
         guard !prompts.isEmpty else { return 0 }
         return Double(completedPromptCount) / Double(prompts.count)
+    }
+
+    private mutating func sortClipsByPromptOrder() {
+        clips = clipsInPromptOrder
+    }
+
+    var clipsInPromptOrder: [FilmClip] {
+        let promptPositions = Dictionary(uniqueKeysWithValues: prompts.map { ($0.id, $0.index) })
+
+        return clips.sorted { lhs, rhs in
+            let lhsPosition = promptPositions[lhs.promptId] ?? Int.max
+            let rhsPosition = promptPositions[rhs.promptId] ?? Int.max
+
+            if lhsPosition == rhsPosition {
+                return lhs.createdAt < rhs.createdAt
+            }
+
+            return lhsPosition < rhsPosition
+        }
     }
 }

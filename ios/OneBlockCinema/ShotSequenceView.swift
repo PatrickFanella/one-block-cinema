@@ -134,7 +134,7 @@ struct ShotSequenceView: View {
             }
 
             if prompt.isCompleted {
-                Label("Captured", systemImage: "checkmark.circle.fill")
+                Label(clipStatusText(for: prompt), systemImage: "checkmark.circle.fill")
                     .font(.caption)
                     .foregroundStyle(CinemaColors.amber)
                     .padding(.horizontal, 12)
@@ -178,6 +178,14 @@ struct ShotSequenceView: View {
                 }
         )
         .sensoryFeedback(.impact(flexibility: .soft), trigger: viewModel.currentPromptIndex)
+    }
+
+    private func clipStatusText(for prompt: ShotPrompt) -> String {
+        if session?.clip(forPromptId: prompt.id) != nil {
+            return "Clip attached"
+        }
+
+        return "Captured"
     }
 
     private var bottomControls: some View {
