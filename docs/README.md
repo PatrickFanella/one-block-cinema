@@ -7,6 +7,7 @@ This tree keeps product, technical, and codebase context stable for humans and a
 - `product/PRD.md` — product definition and decisions
 - `product/MVP_SCOPE.md` — launch boundary and acceptance criteria
 - `product/ROADMAP.md` — phased build plan
+- `product/EPIC_PLAN.md` — issue-mapped epic execution plan
 
 ## Codebase
 
