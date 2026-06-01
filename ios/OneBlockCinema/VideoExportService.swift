@@ -27,36 +27,39 @@ actor VideoExportService {
         var insertedSegmentCount = 0
 
         for segment in plan.segments {
-            let asset = AVURLAsset(url: segment.clip.fileURL)
-
-            do {
-                let assetDuration = try await asset.load(.duration)
-                let guardedDuration = CMTime(seconds: segment.duration, preferredTimescale: 600)
-                let duration = CMTimeMinimum(assetDuration, guardedDuration)
-                let tracks = try await asset.loadTracks(withMediaType: .video)
-
-                guard let sourceVideoTrack = tracks.first else {
-                    throw ExportError.clipLoadFailed("Imported clip has no readable video track.")
-                }
-
-                let timeRange = CMTimeRange(start: .zero, duration: duration)
-                try videoTrack.insertTimeRange(timeRange, of: sourceVideoTrack, at: currentTime)
-
-                let audioTracks = try await asset.loadTracks(withMediaType: .audio)
-                if let sourceAudioTrack = audioTracks.first {
-                    let timeRange = CMTimeRange(start: .zero, duration: duration)
-                    try audioTrack.insertTimeRange(timeRange, of: sourceAudioTrack, at: currentTime)
-                }
-
-                currentTime = CMTimeAdd(currentTime, duration)
-                insertedSegmentCount += 1
-            } catch {
-                throw ExportError.clipLoadFailed(error.localizedDescription)
+            let clip = segment.clip
+            guard FileManager.default.fileExists(atPath: clip.fileURL.path) else {
+                throw ExportError.missingClip(clip.fileURL.lastPathComponent)
             }
+
+            let asset = AVURLAsset(url: clip.fileURL)
+            let assetDuration = try await asset.load(.duration)
+            let guardedDuration = CMTime(seconds: segment.duration, preferredTimescale: 600)
+            let duration = CMTimeMinimum(assetDuration, guardedDuration)
+            let durationSeconds = CMTimeGetSeconds(duration)
+            guard durationSeconds.isFinite, durationSeconds > 0 else {
+                throw ExportError.invalidClip(clip.fileURL.lastPathComponent)
+            }
+
+            let tracks = try await asset.loadTracks(withMediaType: .video)
+            guard let sourceVideoTrack = tracks.first else {
+                throw ExportError.invalidClip(clip.fileURL.lastPathComponent)
+            }
+
+            let timeRange = CMTimeRange(start: .zero, duration: duration)
+            try videoTrack.insertTimeRange(timeRange, of: sourceVideoTrack, at: currentTime)
+
+            let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+            if let sourceAudioTrack = audioTracks.first {
+                try audioTrack.insertTimeRange(timeRange, of: sourceAudioTrack, at: currentTime)
+            }
+
+            currentTime = CMTimeAdd(currentTime, duration)
+            insertedSegmentCount += 1
         }
 
-        guard insertedSegmentCount > 0 else {
-            throw ExportError.noExportableClips
+        guard insertedSegmentCount == plan.segments.count else {
+            throw ExportError.incompleteExport
         }
 
         let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("OneBlockCinema_\(UUID().uuidString).mp4")
@@ -136,7 +139,9 @@ nonisolated enum ExportError: Error, LocalizedError, Sendable {
     case noExportableClips
     case trackCreationFailed
     case exportSessionFailed
-    case clipLoadFailed(String)
+    case missingClip(String)
+    case invalidClip(String)
+    case incompleteExport
     case exportFailed(String)
 
     var errorDescription: String? {
@@ -144,7 +149,9 @@ nonisolated enum ExportError: Error, LocalizedError, Sendable {
         case .noExportableClips: "Add at least one imported video clip before exporting."
         case .trackCreationFailed: "Failed to create video tracks"
         case .exportSessionFailed: "Failed to create export session"
-        case .clipLoadFailed(let message): "Could not read imported clip: \(message)"
+        case .missingClip(let name): "Missing clip file: \(name)"
+        case .invalidClip(let name): "Clip is not readable video: \(name)"
+        case .incompleteExport: "Export stopped because one or more clips could not be included"
         case .exportFailed(let message): "Export failed: \(message)"
         }
     }

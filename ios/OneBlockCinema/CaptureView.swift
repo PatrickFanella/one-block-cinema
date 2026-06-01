@@ -251,8 +251,9 @@ struct CaptureView: View {
             guard let movie = try await item.loadTransferable(type: VideoTransferable.self) else {
                 throw ClipImportError.noVideoSelected
             }
-            try viewModel.addClip(from: movie.url, forPromptId: promptId)
-            dismiss()
+            if await viewModel.addClip(from: movie.url, forPromptId: promptId) {
+                dismiss()
+            }
         } catch {
             showImportError(error)
         }

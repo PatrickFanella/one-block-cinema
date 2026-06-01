@@ -5,7 +5,7 @@
 - Photos/library import through iOS media APIs.
 - AVFoundation video export.
 - Native share sheet/export handoff.
-- Local persistence through `UserDefaults`.
+- Local app-support persistence for draft metadata and imported media, with legacy `UserDefaults` migration.
 
 ## Planned MVP integrations
 

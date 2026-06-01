@@ -7,14 +7,14 @@
 
 ## Languages and runtime
 
-- Swift source in `ios/` and `ios/OneBlockCinema/`.
-- SwiftUI app entry point in `ios/OneBlockCinemaApp.swift`.
-- App shell uses `ObservableObject` view model state.
-- Local persistence currently uses `UserDefaults` through `SessionStorage`.
+- Swift source in `ios/OneBlockCinema/`, `ios/OneBlockCinemaTests/`, and `ios/OneBlockCinemaUITests/`.
+- SwiftUI app entry point in `ios/OneBlockCinema/OneBlockCinemaApp.swift`.
+- App shell uses Swift Observation (`@Observable`) view model state.
+- Local persistence uses JSON metadata plus imported media under app support through `SessionStorage`; legacy `UserDefaults` sessions are migrated on load.
 
 ## Apple/Xcode settings
 
-- Xcode project file: `ios/project.pbxproj`.
+- Xcode project file: `ios/OneBlockCinema.xcodeproj/project.pbxproj`.
 - App target: `OneBlockCinema`.
 - Unit test target: `OneBlockCinemaTests`.
 - UI test target: `OneBlockCinemaUITests`.
@@ -45,9 +45,9 @@
 ## Evidence
 
 - `rork.json`
-- `ios/OneBlockCinemaApp.swift`
-- `ios/ContentView.swift`
+- `ios/OneBlockCinema/OneBlockCinemaApp.swift`
+- `ios/OneBlockCinema/ContentView.swift`
 - `ios/OneBlockCinema/FilmSessionViewModel.swift`
 - `ios/OneBlockCinema/SessionStorage.swift`
 - `ios/OneBlockCinema/VideoExportService.swift`
-- `ios/project.pbxproj`
+- `ios/OneBlockCinema.xcodeproj/project.pbxproj`

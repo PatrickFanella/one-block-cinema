@@ -11,14 +11,14 @@
 
 ## Architecture risks
 
-- `UserDefaults` persistence may be insufficient for media-heavy drafts.
+- Draft persistence now uses app-support metadata/media storage, but still stores absolute file URLs; relative-path hardening is documented in `docs/technical/DRAFT_PERSISTENCE.md`.
 - Sync/community/auth will require backend architecture not yet implemented.
 - Offline editing plus conflict-safe sync is non-trivial.
 - Moderation and age gating must exist before mixed public community launch.
 
 ## Verification gaps
 
-- Tests are generated shells and do not cover product behavior yet.
+- Unit tests cover template/prompt/session basics, but do not yet cover media import/export, persistence migration, or UI behavior.
 - No Swift lint/format config.
 - Linux baseline cannot run Xcode tests.
 

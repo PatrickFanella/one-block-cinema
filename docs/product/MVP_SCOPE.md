@@ -4,6 +4,17 @@
 
 An iPhone app where a beginner or hobbyist can choose a film template, follow guided shot prompts, import clips, assemble a 1–3 minute short, export/share it, and optionally publish for community feedback.
 
+## Current executable slice
+
+- 10 launch templates exist.
+- Guided prompt flow exists.
+- Import-from-library exists; real camera recording is not implemented yet.
+- Local-first draft metadata and imported media persistence exist.
+- Preview is storyboard-style, not final video playback.
+- Export/share is a prototype AV concatenation flow.
+- Auth, backend sync, publishing, comments, challenges, and moderation are planned, not implemented.
+- Linux verification does not build or test the iOS app; use macOS/Xcode for app behavior checks.
+
 ## In scope
 
 ### Onboarding/account

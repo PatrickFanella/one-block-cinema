@@ -17,12 +17,12 @@
 
 ## iOS app
 
-- `ios/OneBlockCinemaApp.swift` — SwiftUI app entry.
-- `ios/ContentView.swift` — top-level tab/navigation shell.
+- `ios/OneBlockCinema/OneBlockCinemaApp.swift` — SwiftUI app entry.
+- `ios/OneBlockCinema/ContentView.swift` — top-level tab/navigation shell.
 - `ios/OneBlockCinema/` — app models, services, and views.
-- `ios/OneBlockCinemaTests.swift` — unit test target shell.
-- `ios/OneBlockCinemaUITests*.swift` — UI test target shell.
-- `ios/project.pbxproj` — Xcode project settings.
+- `ios/OneBlockCinemaTests/` — unit test target.
+- `ios/OneBlockCinemaUITests/` — UI test target.
+- `ios/OneBlockCinema.xcodeproj/project.pbxproj` — Xcode project settings.
 
 ## App feature files
 

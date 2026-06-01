@@ -49,7 +49,13 @@ class FilmSessionViewModel {
     }
 
     func loadSessions() async {
-        sessions = await storage.loadSessions()
+        do {
+            sessions = try await storage.loadSessions()
+        } catch {
+            errorMessage = "Failed to load drafts: \(error.localizedDescription)"
+            showError = true
+            sessions = []
+        }
     }
 
     func startNewSession(theme: FilmTheme) {
@@ -109,37 +115,63 @@ class FilmSessionViewModel {
         saveCurrentSession()
     }
 
-    @discardableResult
-    func addClip(from url: URL, forPromptId: UUID) throws -> FilmClip {
+    func addClip(from url: URL, forPromptId: UUID) async -> Bool {
         guard var session = activeSession else {
-            throw ClipImportError.noActiveSession
+            errorMessage = ClipImportError.noActiveSession.localizedDescription
+            showError = true
+            return false
         }
 
-        let clip = FilmClip(
-            promptId: forPromptId,
-            fileURL: url,
-            duration: videoDuration(for: url)
-        )
-        resetExportState()
-        guard session.attachClip(clip) else {
-            throw ClipImportError.promptNotFound
-        }
+        var copiedClipURL: URL?
 
-        activeSession = session
-        saveCurrentSession()
-        return clip
+        do {
+            let durableURL = try await storage.copyClip(url, for: session.id)
+            copiedClipURL = durableURL
+            let duration = try await videoDuration(for: durableURL)
+            let replacement = FilmClip(promptId: forPromptId, fileURL: durableURL, duration: duration)
+
+            let oldClip = session.clip(forPromptId: forPromptId)
+            resetExportState()
+            guard session.attachClip(replacement) else {
+                throw ClipImportError.promptNotFound
+            }
+
+            activeSession = session
+            saveCurrentSession()
+
+            if let oldClip {
+                try? await storage.deleteClipFile(at: oldClip.fileURL)
+            }
+
+            return true
+        } catch {
+            if let copiedClipURL {
+                try? await storage.deleteClipFile(at: copiedClipURL)
+            }
+            errorMessage = "Failed to save clip: \(error.localizedDescription)"
+            showError = true
+            return false
+        }
     }
 
     func removeClip(_ clip: FilmClip) {
         resetExportState()
         activeSession?.removeClip(clip)
         saveCurrentSession()
+        Task {
+            try? await storage.deleteClipFile(at: clip.fileURL)
+        }
     }
 
     func reorderClips(from source: IndexSet, to destination: Int) {
         resetExportState()
         activeSession?.clips.move(fromOffsets: source, toOffset: destination)
         saveCurrentSession()
+    }
+
+    func canExportActiveSession() -> Bool {
+        guard let session = activeSession, !session.clips.isEmpty else { return false }
+        return !VideoExportLimits.plan(for: session.clipsInPromptOrder).segments.isEmpty
     }
 
     func toggleClipTitle(_ clip: FilmClip) {
@@ -175,7 +207,7 @@ class FilmSessionViewModel {
 
     func exportVideo() async {
         guard let session = activeSession, !session.clips.isEmpty else { return }
-        let plan = VideoExportLimits.plan(for: session.clips)
+        let plan = VideoExportLimits.plan(for: session.clipsInPromptOrder)
         guard !plan.segments.isEmpty else {
             errorMessage = ExportError.noExportableClips.localizedDescription
             showError = true
@@ -230,8 +262,17 @@ class FilmSessionViewModel {
         if activeSession?.id == session.id {
             activeSession = nil
             currentPromptIndex = 0
+            resetExportState()
         }
-        persistSessions()
+
+        let sessionsSnapshot = sessions
+        let storage = storage
+        let previousTask = pendingPersistenceTask
+        pendingPersistenceTask = Task {
+            await previousTask?.value
+            try? await storage.deleteDraft(for: session.id)
+            try? await storage.saveSessions(sessionsSnapshot)
+        }
     }
 
     func saveCurrentSession() {
@@ -253,19 +294,20 @@ class FilmSessionViewModel {
     }
 
     private func persistSessions() {
-        let sessions = sessions
+        let sessionsSnapshot = sessions
         let storage = storage
         let previousTask = pendingPersistenceTask
-        pendingPersistenceTask = Task {
+        pendingPersistenceTask = Task { [weak self] in
             await previousTask?.value
-            await storage.saveSessions(sessions)
+            do {
+                try await storage.saveSessions(sessionsSnapshot)
+            } catch {
+                await MainActor.run {
+                    self?.errorMessage = "Failed to save draft: \(error.localizedDescription)"
+                    self?.showError = true
+                }
+            }
         }
-    }
-
-    private func videoDuration(for url: URL) -> TimeInterval {
-        let asset = AVURLAsset(url: url)
-        let duration = CMTimeGetSeconds(asset.duration)
-        return duration.isNaN ? 0 : duration
     }
 
     private func resetExportState() {
@@ -275,6 +317,14 @@ class FilmSessionViewModel {
         exportStatusMessage = nil
         exportedVideoURL = nil
         showExportShare = false
+    }
+
+    private func videoDuration(for url: URL) async throws -> TimeInterval {
+        let asset = AVURLAsset(url: url)
+        let duration = try await asset.load(.duration)
+        let seconds = CMTimeGetSeconds(duration)
+        guard seconds.isFinite, seconds > 0 else { throw ClipImportError.invalidDuration }
+        return seconds
     }
 
     private static func formattedDuration(_ duration: TimeInterval) -> String {
@@ -288,6 +338,7 @@ nonisolated enum ClipImportError: LocalizedError, Sendable {
     case noActiveSession
     case promptNotFound
     case noVideoSelected
+    case invalidDuration
 
     var errorDescription: String? {
         switch self {
@@ -297,6 +348,8 @@ nonisolated enum ClipImportError: LocalizedError, Sendable {
             return "This clip could not be matched to the selected shot prompt."
         case .noVideoSelected:
             return "No video was selected. Choose a clip from your library to attach it to this shot."
+        case .invalidDuration:
+            return "Could not read a valid video duration. Try a different clip."
         }
     }
 }
