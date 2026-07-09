@@ -10,6 +10,9 @@
 - `.gitea/` — Open Pilot issue/PR/workflow templates.
 - `docs/` — product, technical, and codebase docs.
 - `ios/` — generated native iOS app.
+- `backend/` — Fastify API, pg-boss worker, Zod contracts, tests, and Fly container configuration.
+- `moderation-console/` — admin-role Next.js moderation queue.
+- `supabase/` — local Supabase configuration and ordered SQL migrations.
 
 ## Product content
 

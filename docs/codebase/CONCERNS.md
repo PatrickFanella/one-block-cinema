@@ -12,7 +12,7 @@
 ## Architecture risks
 
 - Draft persistence now uses GRDB, relative paths, and missing-media recovery; a user-facing repair workflow and storage-pressure cleanup policy remain incomplete.
-- Sync/community/auth will require backend architecture not yet implemented.
+- Backend/RLS/service boundaries exist, but iOS auth, resumable media sync, environment provisioning, and operational validation are not implemented.
 - Offline editing plus conflict-safe sync is non-trivial.
 - Moderation and age gating must exist before mixed public community launch.
 
@@ -29,4 +29,4 @@
 3. Verify all 10 templates end-to-end with representative media and device accessibility QA.
 4. Replace or clearly disable placeholder camera UX until a post-MVP camera issue.
 5. Replace placeholder preview/export UX with verified behavior.
-6. Draft backend/auth/sync architecture before community implementation.
+6. Connect native auth and project sync only after disposable-environment RLS tests pass.

@@ -1,0 +1,13 @@
+packages:
+  - backend
+  - moderation-console
+allowBuilds:
+  esbuild: true
+  sharp: true
+minimumReleaseAgeExclude:
+  - '@supabase/auth-js@2.110.2'
+  - '@supabase/functions-js@2.110.2'
+  - '@supabase/postgrest-js@2.110.2'
+  - '@supabase/realtime-js@2.110.2'
+  - '@supabase/storage-js@2.110.2'
+  - '@supabase/supabase-js@2.110.2'

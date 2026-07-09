@@ -10,10 +10,10 @@ An iPhone app where a beginner or hobbyist can choose a film template, follow gu
 - Guided prompt flow exists.
 - Import-from-library exists; real camera recording is not implemented yet.
 - Local-first draft metadata and imported media persistence exist.
-- Preview is storyboard-style, not final video playback.
-- Export/share is a prototype AV concatenation flow.
-- Auth, backend sync, publishing, comments, challenges, and moderation are planned, not implemented.
-- Linux verification does not build or test the iOS app; use macOS/Xcode for app behavior checks.
+- Preview is real AVPlayer playback driven by the same normalized render plan as export.
+- Export/share produces a cancellable, template-aspect MP4 with progress, disk checks, audio preservation, and a 180-second cap; media-fixture/device QA remains incomplete.
+- Auth/sync/community are not connected to the iOS app. Credential-free API, worker, RLS, and moderation-console foundations exist with community flags off.
+- Linux verification checks backend/schema contracts but does not build or test the iOS app; use macOS/Xcode for app behavior checks.
 
 ## In scope
 

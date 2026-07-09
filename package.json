@@ -1,0 +1,10 @@
+{
+  "name": "one-block-cinema",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "scripts": {
+    "check": "pnpm --recursive check",
+    "test": "pnpm --recursive test",
+    "build": "pnpm --recursive build"
+  }
+}

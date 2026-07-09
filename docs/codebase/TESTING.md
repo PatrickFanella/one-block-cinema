@@ -11,9 +11,12 @@ make verify
 Current Linux baseline:
 
 - checks required docs exist
+- validates the ten-template catalog and required RLS table/policy coverage
+- typechecks the Fastify service, worker, and moderation console when pnpm is installed
+- runs backend contract and webhook-signature tests
 - checks Open Pilot templates exist
 - checks common secret filenames are not tracked
-- skips Swift formatter/linter because none is configured yet
+- runs SwiftFormat/SwiftLint when installed (macOS CI requires both)
 - skips Xcode tests because Linux runner cannot execute them
 
 ## Xcode testing
@@ -25,6 +28,16 @@ xcodebuild test -project ios/OneBlockCinema.xcodeproj -scheme OneBlockCinema -de
 ```
 
 Use `xcodebuild -showdestinations -project ios/OneBlockCinema.xcodeproj -scheme OneBlockCinema` if that simulator is not installed.
+
+## Backend testing
+
+```bash
+pnpm install --frozen-lockfile
+pnpm check
+python3 scripts/check_migrations.py
+```
+
+The static migration gate does not replace disposable-project RLS integration tests. Those remain required before any staging or production activation.
 
 ## Physical iPhone testing
 

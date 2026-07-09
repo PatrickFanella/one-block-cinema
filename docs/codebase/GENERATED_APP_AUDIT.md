@@ -32,11 +32,11 @@ This audit compares the generated iOS app shell with the MVP promise in `docs/pr
 
 - Authentication is missing, including email OTP, Google, and Apple sign-in (`docs/product/PRD.md:24`, `docs/product/PRD.md:70-75`, `docs/product/MVP_SCOPE.md:9-14`).
 - User-editable profiles are missing (`docs/product/PRD.md:61-68`, `docs/product/MVP_SCOPE.md:11-14`).
-- Backend API implementation is missing; the API spec explicitly says backend is planned, not implemented (`docs/technical/API_SPEC.md:3-13`).
+- Backend activation is missing: Fastify routes, worker queues, RLS schema, and the moderation console compile, but no environment or iOS auth/sync client is connected (`backend/`, `supabase/`, `moderation-console/`).
 - Project/draft/profile/comment/challenge sync is missing (`docs/product/PRD.md:31`, `docs/product/PRD.md:70-75`, `docs/technical/API_SPEC.md:58-63`).
 - Publish and private-until-publish flows are missing (`docs/product/PRD.md:52-53`, `docs/product/MVP_SCOPE.md:39-40`, `docs/technical/API_SPEC.md:9-13`).
 - Daily/weekly challenges are missing (`docs/product/PRD.md:32`, `docs/product/PRD.md:61-68`, `docs/product/MVP_SCOPE.md:41`).
-- Comments, peer feedback, reports, moderation queue/actions, and age gating are missing (`docs/product/PRD.md:33`, `docs/product/PRD.md:61-68`, `docs/product/MVP_SCOPE.md:42-44`, `docs/technical/API_SPEC.md:45-56`).
+- Comments, reports, reciprocal blocks, moderation queues/actions, and age-gate constraints exist as inactive server/schema contracts; the iOS experience, automated moderation, policies, and operational drills are missing.
 - Backend-delivered/versioned template updates are not implemented; the launch catalog is bundled and offline-only.
 - Unit tests cover template, session, storage, and export-plan basics, but media fixture and meaningful UI-flow coverage remain missing (`docs/codebase/CONCERNS.md:19-23`).
 
@@ -44,12 +44,12 @@ This audit compares the generated iOS app shell with the MVP promise in `docs/pr
 
 - The capture screen labels a "Camera Preview" and shows a red record control, but the implementation is a placeholder and does not record video (`ios/OneBlockCinema/CaptureView.swift:82-109`, `ios/OneBlockCinema/CaptureView.swift:172-189`).
 - The "Preview & Export" / "Export & Share" flow suggests a complete assembly/export/share pipeline, but it only marks completion, exports locally, and opens the platform share sheet (`ios/OneBlockCinema/AssemblyView.swift:240-257`, `ios/OneBlockCinema/PreviewExportView.swift:153-176`, `ios/OneBlockCinema/VideoExportService.swift:41-60`).
-- The product promise includes community feedback and sync, but the current app is a local-only shell with no backend/auth/community implementation (`docs/product/PRD.md:18-33`, `docs/technical/API_SPEC.md:3-13`, `ios/OneBlockCinema/SessionStorage.swift:3-18`).
+- The iOS product remains local-only even though inactive backend/community foundations now exist; no local draft is uploaded without a future explicit sync flow.
 
-## P0 blockers before MVP implementation work
+## P0 blockers before connected/community release
 
-1. **Backend/auth/sync architecture is absent.** MVP requires auth, sync, publish, community, challenges, comments, moderation, and age gating, while the API spec is only planned (`docs/product/PRD.md:70-85`, `docs/technical/API_SPEC.md:3-13`).
-2. **No authentication path exists.** This blocks sync, publishing, private-until-publish identity, comments, and community participation (`docs/product/PRD.md:24`, `docs/product/PRD.md:72-74`, `docs/product/MVP_SCOPE.md:57`).
-3. **No publish/community safety path exists.** Publish, comments, reports, moderation, and age gating must be defined before any public community launch (`docs/product/PRD.md:61-68`, `docs/product/MVP_SCOPE.md:64-67`, `docs/technical/API_SPEC.md:39-56`).
-4. **Sync architecture is absent.** The durable local GRDB store, relative media paths, and recovery records are now present, but resumable cloud media transfer and conflict-aware sync are not.
+1. **iOS authentication and sync clients are absent.** This blocks connected profiles, publishing, private-until-publish identity, comments, and community participation.
+2. **External environments are unconfigured.** Separate Supabase/Mux/Fly projects, credentials, SMTP, APNs, backups, and restore drills are still required.
+3. **Community safety is not operational.** RLS, reports, blocks, queues, manual review, and the admin console exist as foundations, but automated filtering, policy/runbook review, staffing, appeals, and end-to-end staging tests remain gates.
+4. **Cloud media sync is absent.** The durable local GRDB store, outbox, relative media paths, and conflict recovery types are present, but resumable cloud transfer is not.
 5. **Capture/edit/export still needs device and media-fixture hardening.** Camera recording, trim controls, transitions, titles, looks, and background export recovery remain incomplete; the shared preview/export render plan still needs representative-device and mixed-media QA (`ios/OneBlockCinema/CaptureView.swift`, `ios/OneBlockCinema/PreviewExportView.swift`, `ios/OneBlockCinema/VideoExportService.swift`).

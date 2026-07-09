@@ -1,12 +1,12 @@
 SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 
-.PHONY: help verify fmt lint test ios-build ios-test archive-check docs-check templates-check open-pilot-check secrets-check xcode-note
+.PHONY: help verify fmt lint test ios-build ios-test archive-check docs-check templates-check migrations-check backend-check open-pilot-check secrets-check xcode-note
 
 help: ## Show commands
 	@awk 'BEGIN {FS = ":.*##"; printf "Commands:\n"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-verify: fmt lint test docs-check templates-check open-pilot-check secrets-check xcode-note ## Run all checks
+verify: fmt lint test docs-check templates-check migrations-check backend-check open-pilot-check secrets-check xcode-note ## Run all checks
 
 fmt: ## Format files where repo tooling is available
 	@if command -v swiftformat >/dev/null 2>&1; then \
@@ -51,6 +51,16 @@ docs-check: ## Verify required docs exist
 
 templates-check: ## Validate product template data
 	@python3 scripts/validate_templates.py
+
+migrations-check: ## Validate required tables and RLS coverage
+	@python3 scripts/check_migrations.py
+
+backend-check: ## Typecheck and test backend/console workspaces when pnpm is available
+	@if command -v pnpm >/dev/null 2>&1; then \
+		pnpm check; \
+	else \
+		echo 'skip backend-check: install pnpm to typecheck TypeScript workspaces'; \
+	fi
 
 open-pilot-check: ## Verify Open Pilot templates exist
 	@test -f .gitea/ISSUE_TEMPLATE/open-pilot-task.yaml

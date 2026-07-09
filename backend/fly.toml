@@ -1,0 +1,36 @@
+app = "one-block-cinema-api-staging"
+primary_region = "ord"
+
+[build]
+  dockerfile = "backend/Dockerfile"
+
+[env]
+  APP_ENV = "staging"
+  HOST = "0.0.0.0"
+  PORT = "8080"
+  FEATURE_COMMUNITY = "false"
+  FEATURE_AI_COACH = "false"
+
+[processes]
+  web = "node backend/dist/server.js"
+  worker = "node backend/dist/worker.js"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["web"]
+
+  [[http_service.checks]]
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/healthz"
+
+[[vm]]
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1
