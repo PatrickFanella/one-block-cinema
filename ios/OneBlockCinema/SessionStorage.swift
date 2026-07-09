@@ -418,6 +418,9 @@ actor SessionStorage {
             try db.execute(sql: "ALTER TABLE clips ADD COLUMN trim_start DOUBLE NOT NULL DEFAULT 0")
             try db.execute(sql: "ALTER TABLE clips ADD COLUMN trim_end DOUBLE")
         }
+        migrator.registerMigration("add-clip-volume-v4") { db in
+            try db.execute(sql: "ALTER TABLE clips ADD COLUMN volume DOUBLE NOT NULL DEFAULT 1")
+        }
         return migrator
     }()
 
@@ -462,8 +465,8 @@ actor SessionStorage {
                         INSERT INTO clips (
                             id, session_id, prompt_id, path, path_kind,
                             thumbnail_path, thumbnail_path_kind, duration, created_at,
-                            show_title, title_text, media_status, trim_start, trim_end
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            show_title, title_text, media_status, trim_start, trim_end, volume
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                     arguments: [
                         clip.id.uuidString,
@@ -480,6 +483,7 @@ actor SessionStorage {
                         clip.mediaStatus.rawValue,
                         clip.trimStart,
                         clip.trimEnd,
+                        clip.volume,
                     ]
                 )
             }
@@ -530,7 +534,8 @@ actor SessionStorage {
                 titleText: row["title_text"],
                 mediaStatus: status,
                 trimStart: row["trim_start"],
-                trimEnd: row["trim_end"]
+                trimEnd: row["trim_end"],
+                volume: row["volume"]
             )
         }
     }

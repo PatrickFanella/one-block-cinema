@@ -198,6 +198,17 @@ class FilmSessionViewModel {
     }
 
     func updateClipTrim(id: UUID, start: TimeInterval, end: TimeInterval) {
+        updateClipEdits(id: id, start: start, end: end)
+    }
+
+    func updateClipEdits(
+        id: UUID,
+        start: TimeInterval,
+        end: TimeInterval,
+        showTitle: Bool? = nil,
+        title: String? = nil,
+        volume: Double? = nil
+    ) {
         guard let index = activeSession?.clips.firstIndex(where: { $0.id == id }),
               let duration = activeSession?.clips[index].duration,
               duration > 0 else { return }
@@ -207,6 +218,15 @@ class FilmSessionViewModel {
         resetExportState()
         activeSession?.clips[index].trimStart = clampedStart
         activeSession?.clips[index].trimEnd = clampedEnd >= duration ? nil : clampedEnd
+        if let showTitle {
+            activeSession?.clips[index].showTitle = showTitle
+        }
+        if let title {
+            activeSession?.clips[index].titleText = String(title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(80))
+        }
+        if let volume {
+            activeSession?.clips[index].volume = min(max(volume, 0), 1)
+        }
         saveCurrentSession()
     }
 

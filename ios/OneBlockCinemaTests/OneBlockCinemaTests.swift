@@ -210,6 +210,9 @@ struct OneBlockCinemaTests {
         var firstClip = FilmClip(promptId: firstPrompt.id, fileURL: firstURL, duration: 8)
         firstClip.trimStart = 1.5
         firstClip.trimEnd = 6
+        firstClip.showTitle = true
+        firstClip.titleText = "An opening"
+        firstClip.volume = 0.35
         let secondClip = FilmClip(promptId: secondPrompt.id, fileURL: secondURL, duration: 4)
         var session = FilmSession(
             id: sessionId,
@@ -227,6 +230,8 @@ struct OneBlockCinemaTests {
         #expect(loadedFirstClip.effectiveTrimStart == 1.5)
         #expect(loadedFirstClip.effectiveTrimEnd == 6)
         #expect(loadedFirstClip.trimmedDuration == 4.5)
+        #expect(loadedFirstClip.titleText == "An opening")
+        #expect(loadedFirstClip.volume == 0.35)
     }
 
     @Test func migratesLegacyUserDefaultsOnlyOnce() async throws {
@@ -427,6 +432,23 @@ struct OneBlockCinemaTests {
         #expect(plan.segments.map(\.duration) == [3, 5.5])
         #expect(plan.segments.map(\.timelineStart) == [0, 3])
         #expect(plan.totalDuration == 8.5)
+    }
+
+    @Test func renderPlanBuildsBoundedTitleCues() {
+        var titledClip = makeClip(1, duration: 1.5)
+        titledClip.showTitle = true
+        titledClip.titleText = "  Opening image  "
+        var untitledClip = makeClip(2, duration: 5)
+        untitledClip.showTitle = false
+        untitledClip.titleText = "Hidden"
+
+        let plan = VideoExportLimits.plan(for: [titledClip, untitledClip])
+
+        #expect(plan.titleCues.count == 1)
+        #expect(plan.titleCues.first?.clipId == titledClip.id)
+        #expect(plan.titleCues.first?.text == "Opening image")
+        #expect(plan.titleCues.first?.timelineStart == 0)
+        #expect(plan.titleCues.first?.duration == 1.5)
     }
 
     @Test func renderPlanSkipsExplicitlyMissingMedia() {

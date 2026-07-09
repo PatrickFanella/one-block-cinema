@@ -18,6 +18,7 @@ nonisolated struct FilmClip: Identifiable, Codable, Sendable, Hashable {
     var mediaStatus: ClipMediaStatus
     var trimStart: TimeInterval
     var trimEnd: TimeInterval?
+    var volume: Double
 
     init(
         id: UUID = UUID(),
@@ -30,7 +31,8 @@ nonisolated struct FilmClip: Identifiable, Codable, Sendable, Hashable {
         titleText: String = "",
         mediaStatus: ClipMediaStatus = .available,
         trimStart: TimeInterval = 0,
-        trimEnd: TimeInterval? = nil
+        trimEnd: TimeInterval? = nil,
+        volume: Double = 1
     ) {
         self.id = id
         self.promptId = promptId
@@ -43,6 +45,7 @@ nonisolated struct FilmClip: Identifiable, Codable, Sendable, Hashable {
         self.mediaStatus = mediaStatus
         self.trimStart = trimStart
         self.trimEnd = trimEnd
+        self.volume = volume
     }
 
     var isMediaAvailable: Bool {
@@ -73,6 +76,7 @@ nonisolated struct FilmClip: Identifiable, Codable, Sendable, Hashable {
         case mediaStatus
         case trimStart
         case trimEnd
+        case volume
     }
 
     init(from decoder: Decoder) throws {
@@ -88,5 +92,6 @@ nonisolated struct FilmClip: Identifiable, Codable, Sendable, Hashable {
         mediaStatus = try container.decodeIfPresent(ClipMediaStatus.self, forKey: .mediaStatus) ?? .available
         trimStart = try container.decodeIfPresent(TimeInterval.self, forKey: .trimStart) ?? 0
         trimEnd = try container.decodeIfPresent(TimeInterval.self, forKey: .trimEnd)
+        volume = try container.decodeIfPresent(Double.self, forKey: .volume) ?? 1
     }
 }

@@ -15,6 +15,7 @@ struct AssemblyView: View {
                 clipsList
 
                 if let session, !session.clips.isEmpty {
+                    lookSection
                     limitationsSection
                     previewButton
                 }
@@ -197,8 +198,38 @@ struct AssemblyView: View {
                 .foregroundStyle(CinemaColors.warmWhite)
 
             capabilityRow(icon: "checkmark.circle.fill", text: "Uses your saved clip order and non-destructive trim points")
+            capabilityRow(icon: "checkmark.circle.fill", text: "Renders clip title overlays, per-clip audio levels, and the selected look")
             capabilityRow(icon: "checkmark.circle.fill", text: "Skips prompts that do not have clips yet")
-            capabilityRow(icon: "lock.fill", text: "Transitions, title cards, and soundtrack controls are not built yet")
+            capabilityRow(icon: "lock.fill", text: "Transitions, standalone intertitle cards, voiceover, and soundtrack beds are not built yet")
+        }
+        .padding(14)
+        .background(CinemaColors.surface.opacity(0.8))
+        .clipShape(.rect(cornerRadius: 14))
+    }
+
+    private var lookSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Film Look")
+                .font(.system(.headline, design: .serif))
+                .foregroundStyle(CinemaColors.warmWhite)
+
+            Picker(
+                "Film Look",
+                selection: Binding(
+                    get: { viewModel.activeSession?.editStyle == .silentFilm ? EditStyle.silentFilm : .standard },
+                    set: { viewModel.setEditStyle($0) }
+                )
+            ) {
+                Text("Standard").tag(EditStyle.standard)
+                Text("Silent Film").tag(EditStyle.silentFilm)
+            }
+            .pickerStyle(.segmented)
+
+            Text(viewModel.activeSession?.editStyle == .silentFilm
+                ? "Adds a warm archival tint and mutes source audio in preview and export."
+                : "Keeps natural color and uses each clip's saved audio level.")
+                .font(.caption)
+                .foregroundStyle(CinemaColors.dimText)
         }
         .padding(14)
         .background(CinemaColors.surface.opacity(0.8))
@@ -246,12 +277,18 @@ struct ClipDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var trimStart: TimeInterval
     @State private var trimEnd: TimeInterval
+    @State private var showTitle: Bool
+    @State private var titleText: String
+    @State private var volume: Double
 
     init(clip: FilmClip, viewModel: FilmSessionViewModel) {
         self.clip = clip
         self.viewModel = viewModel
         _trimStart = State(initialValue: clip.effectiveTrimStart)
         _trimEnd = State(initialValue: clip.effectiveTrimEnd)
+        _showTitle = State(initialValue: clip.showTitle)
+        _titleText = State(initialValue: clip.titleText)
+        _volume = State(initialValue: min(max(clip.volume, 0), 1))
     }
 
     var body: some View {
@@ -299,6 +336,24 @@ struct ClipDetailSheet: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Section("Title") {
+                    Toggle("Show title over clip", isOn: $showTitle)
+                    TextField("Title text", text: $titleText)
+                        .disabled(!showTitle)
+                    Text("Titles appear briefly at the beginning of this clip in preview and export.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("Clip audio") {
+                    LabeledContent("Volume", value: "\(Int(volume * 100))%")
+                    Slider(value: $volume, in: 0...1)
+                        .accessibilityLabel("Clip volume")
+                    Text("This changes the mix without modifying the source file.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section {
                     Button("Remove Clip", role: .destructive) {
                         viewModel.removeClip(clip)
@@ -311,7 +366,14 @@ struct ClipDetailSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        viewModel.updateClipTrim(id: clip.id, start: trimStart, end: trimEnd)
+                        viewModel.updateClipEdits(
+                            id: clip.id,
+                            start: trimStart,
+                            end: trimEnd,
+                            showTitle: showTitle,
+                            title: titleText,
+                            volume: volume
+                        )
                         dismiss()
                     }
                 }

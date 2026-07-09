@@ -22,10 +22,11 @@ Implemented foundation:
 
 - AVFoundation 1080p camera recording, front/rear cameras, tap focus/exposure, torch, bounded zoom, automatic stabilization, microphone control, prompt/aspect overlays, rotation, a 180-second recording cap, retake review, Settings recovery, and equal Photos import.
 - Non-destructive in/out trim points and user-controlled clip order persist in GRDB and drive the shared preview/export render plan.
+- Clip title overlays, per-clip source-audio levels, and selectable standard/silent-film looks render identically in preview and export.
 
 Remaining:
 
-- Straight cuts/crossfades, title/intertitle cards, standard/silent-film looks, voiceover, ambient beds, and per-track volume.
+- Crossfades, standalone title/intertitle cards, voiceover, ambient beds, and additional audio tracks.
 - VoiceOver, Dynamic Type, reduced-motion, contrast, keyboard, localization, and oldest-device audits.
 
 ## 1.0 Creator launch — accounts and sync

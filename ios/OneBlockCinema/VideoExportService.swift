@@ -1,6 +1,7 @@
 import AVFoundation
 import CoreGraphics
 import Foundation
+import QuartzCore
 
 nonisolated struct RenderDimensions: Sendable, Equatable, Hashable {
     let width: Int
@@ -29,11 +30,19 @@ nonisolated struct RenderSegment: Sendable, Equatable {
     let timelineStart: TimeInterval
 }
 
+nonisolated struct RenderTitleCue: Sendable, Equatable {
+    let clipId: UUID
+    let text: String
+    let timelineStart: TimeInterval
+    let duration: TimeInterval
+}
+
 nonisolated struct RenderPlan: Sendable, Equatable {
     let projectId: UUID?
     let aspectRatio: TemplateAspectRatio
     let outputDimensions: RenderDimensions
     let segments: [RenderSegment]
+    let titleCues: [RenderTitleCue]
     let totalDuration: TimeInterval
     let wasTrimmedToMaximumDuration: Bool
     let pacingStyle: PacingStyle
@@ -82,6 +91,7 @@ nonisolated enum VideoExportLimits {
                 aspectRatio: aspectRatio,
                 outputDimensions: .fullHD(for: aspectRatio),
                 segments: [],
+                titleCues: [],
                 totalDuration: 0,
                 wasTrimmedToMaximumDuration: !clips.isEmpty,
                 pacingStyle: pacingStyle,
@@ -120,11 +130,23 @@ nonisolated enum VideoExportLimits {
             }
         }
 
+        let titleCues = segments.compactMap { segment -> RenderTitleCue? in
+            let title = segment.clip.titleText.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard segment.clip.showTitle, !title.isEmpty else { return nil }
+            return RenderTitleCue(
+                clipId: segment.clip.id,
+                text: String(title.prefix(80)),
+                timelineStart: segment.timelineStart,
+                duration: min(3, segment.duration)
+            )
+        }
+
         return RenderPlan(
             projectId: projectId,
             aspectRatio: aspectRatio,
             outputDimensions: .fullHD(for: aspectRatio),
             segments: segments,
+            titleCues: titleCues,
             totalDuration: timelineStart,
             wasTrimmedToMaximumDuration: trimmed,
             pacingStyle: pacingStyle,
@@ -136,10 +158,12 @@ nonisolated enum VideoExportLimits {
 nonisolated struct PreparedRender: @unchecked Sendable {
     let composition: AVMutableComposition
     let videoComposition: AVMutableVideoComposition
+    let audioMix: AVAudioMix?
 
     @MainActor func makePlayerItem() -> AVPlayerItem {
         let item = AVPlayerItem(asset: composition)
         item.videoComposition = videoComposition
+        item.audioMix = audioMix
         return item
     }
 }
@@ -166,6 +190,7 @@ nonisolated enum RenderCompositionBuilder {
         videoComposition.renderSize = plan.outputDimensions.size
         videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
         var instructions: [AVMutableVideoCompositionInstruction] = []
+        let audioParameters = audioTrack.map { AVMutableAudioMixInputParameters(track: $0) }
 
         for segment in plan.segments {
             let clip = segment.clip
@@ -192,6 +217,8 @@ nonisolated enum RenderCompositionBuilder {
 
             if let audioTrack, let sourceAudioTrack = try await asset.loadTracks(withMediaType: .audio).first {
                 try audioTrack.insertTimeRange(timeRange, of: sourceAudioTrack, at: insertionTime)
+                let volume = plan.editStyle == .silentFilm ? 0 : min(max(clip.volume, 0), 1)
+                audioParameters?.setVolume(Float(volume), at: insertionTime)
             }
 
             let naturalSize = try await sourceVideoTrack.load(.naturalSize)
@@ -215,7 +242,68 @@ nonisolated enum RenderCompositionBuilder {
             throw ExportError.incompleteExport
         }
         videoComposition.instructions = instructions
-        return PreparedRender(composition: composition, videoComposition: videoComposition)
+        configureAnimationTool(for: plan, videoComposition: videoComposition)
+        let audioMix: AVAudioMix? = audioParameters.map { parameters in
+            let mix = AVMutableAudioMix()
+            mix.inputParameters = [parameters]
+            return mix
+        }
+        return PreparedRender(composition: composition, videoComposition: videoComposition, audioMix: audioMix)
+    }
+
+    private static func configureAnimationTool(
+        for plan: RenderPlan,
+        videoComposition: AVMutableVideoComposition
+    ) {
+        guard plan.editStyle == .silentFilm || !plan.titleCues.isEmpty else { return }
+
+        let frame = CGRect(origin: .zero, size: plan.outputDimensions.size)
+        let parentLayer = CALayer()
+        let videoLayer = CALayer()
+        parentLayer.frame = frame
+        videoLayer.frame = frame
+        parentLayer.addSublayer(videoLayer)
+
+        if plan.editStyle == .silentFilm {
+            let tintLayer = CALayer()
+            tintLayer.frame = frame
+            tintLayer.backgroundColor = CGColor(red: 0.42, green: 0.28, blue: 0.08, alpha: 0.18)
+            parentLayer.addSublayer(tintLayer)
+        }
+
+        for cue in plan.titleCues {
+            let titleLayer = CATextLayer()
+            titleLayer.string = cue.text
+            titleLayer.alignmentMode = .center
+            titleLayer.foregroundColor = CGColor(gray: 1, alpha: 1)
+            titleLayer.backgroundColor = CGColor(gray: 0, alpha: 0.72)
+            titleLayer.cornerRadius = max(10, frame.width * 0.012)
+            titleLayer.contentsScale = 2
+            titleLayer.fontSize = max(28, frame.width * 0.045)
+            titleLayer.isWrapped = true
+            titleLayer.frame = CGRect(
+                x: frame.width * 0.08,
+                y: frame.height * 0.08,
+                width: frame.width * 0.84,
+                height: frame.height * 0.12
+            )
+            titleLayer.opacity = 0
+
+            let opacity = CAKeyframeAnimation(keyPath: "opacity")
+            opacity.values = [0, 1, 1, 0]
+            opacity.keyTimes = [0, 0.08, 0.82, 1]
+            opacity.duration = max(0.1, cue.duration)
+            opacity.beginTime = AVCoreAnimationBeginTimeAtZero + cue.timelineStart
+            opacity.isRemovedOnCompletion = false
+            opacity.fillMode = .both
+            titleLayer.add(opacity, forKey: "title-opacity-\(cue.clipId.uuidString)")
+            parentLayer.addSublayer(titleLayer)
+        }
+
+        videoComposition.animationTool = AVVideoCompositionCoreAnimationTool(
+            postProcessingAsVideoLayer: videoLayer,
+            in: parentLayer
+        )
     }
 
     static func normalizedTransform(
@@ -269,6 +357,7 @@ actor VideoExportService: RenderService {
             throw ExportError.exportSessionFailed
         }
         exportSession.videoComposition = prepared.videoComposition
+        exportSession.audioMix = prepared.audioMix
         exportSession.shouldOptimizeForNetworkUse = true
         activeExportSession = exportSession
 
