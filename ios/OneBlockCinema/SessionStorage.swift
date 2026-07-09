@@ -10,11 +10,14 @@ nonisolated struct DraftRecoveryIssue: Identifiable, Codable, Sendable, Hashable
 
 nonisolated enum SessionStorageError: LocalizedError, Sendable {
     case unsafeMediaPath
+    case missingOutboxOperation
 
     var errorDescription: String? {
         switch self {
         case .unsafeMediaPath:
             "One-Block Cinema refused to delete a media file outside its private storage directory."
+        case .missingOutboxOperation:
+            "The queued sync operation could not be found."
         }
     }
 }
@@ -203,6 +206,97 @@ actor SessionStorage {
         }
     }
 
+    func enqueueSyncOperation(
+        aggregateId: UUID,
+        kind: SyncOperationKind,
+        payload: Data,
+        idempotencyKey: UUID = UUID(),
+        createdAt: Date = Date()
+    ) throws -> SyncOutboxOperation {
+        let queue = try database()
+        return try queue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT OR IGNORE INTO sync_outbox (
+                        id, aggregate_id, operation, payload, created_at,
+                        attempt_count, next_attempt_at, state, last_error
+                    ) VALUES (?, ?, ?, ?, ?, 0, NULL, 'pending', NULL)
+                    """,
+                arguments: [
+                    idempotencyKey.uuidString,
+                    aggregateId.uuidString,
+                    kind.rawValue,
+                    payload,
+                    createdAt.timeIntervalSince1970,
+                ]
+            )
+            guard let operation = try Self.fetchSyncOperation(id: idempotencyKey, from: db) else {
+                throw SessionStorageError.missingOutboxOperation
+            }
+            return operation
+        }
+    }
+
+    func loadPendingSyncOperations(limit: Int = 50, now: Date = Date()) throws -> [SyncOutboxOperation] {
+        guard limit > 0 else { return [] }
+        let queue = try database()
+        return try queue.read { db in
+            let rows = try Row.fetchAll(
+                db,
+                sql: """
+                    SELECT * FROM sync_outbox
+                    WHERE state IN ('pending', 'failed')
+                      AND (next_attempt_at IS NULL OR next_attempt_at <= ?)
+                    ORDER BY created_at ASC
+                    LIMIT ?
+                    """,
+                arguments: [now.timeIntervalSince1970, limit]
+            )
+            return rows.compactMap(Self.decodeSyncOperation)
+        }
+    }
+
+    func markProcessing(id: UUID) throws {
+        let queue = try database()
+        try queue.write { db in
+            try db.execute(
+                sql: "UPDATE sync_outbox SET state = 'processing', last_error = NULL WHERE id = ?",
+                arguments: [id.uuidString]
+            )
+        }
+    }
+
+    func markFailed(id: UUID, error: String, retryAt: Date) throws {
+        let queue = try database()
+        try queue.write { db in
+            try db.execute(
+                sql: """
+                    UPDATE sync_outbox
+                    SET state = 'failed',
+                        attempt_count = attempt_count + 1,
+                        next_attempt_at = ?,
+                        last_error = ?
+                    WHERE id = ?
+                    """,
+                arguments: [retryAt.timeIntervalSince1970, error, id.uuidString]
+            )
+        }
+    }
+
+    func markCompleted(id: UUID) throws {
+        let queue = try database()
+        try queue.write { db in
+            try db.execute(
+                sql: """
+                    UPDATE sync_outbox
+                    SET state = 'completed', next_attempt_at = NULL, last_error = NULL
+                    WHERE id = ?
+                    """,
+                arguments: [id.uuidString]
+            )
+        }
+    }
+
     private func migrateLegacyIfNeeded(in queue: DatabaseQueue) throws {
         let alreadyMigrated = try queue.read { db in
             try String.fetchOne(
@@ -316,6 +410,9 @@ actor SessionStorage {
                     created_at DOUBLE NOT NULL
                 );
                 """)
+        }
+        migrator.registerMigration("add-outbox-error-v2") { db in
+            try db.execute(sql: "ALTER TABLE sync_outbox ADD COLUMN last_error TEXT")
         }
         return migrator
     }()
@@ -437,6 +534,38 @@ actor SessionStorage {
         )
     }
 
+    private static func fetchSyncOperation(id: UUID, from db: Database) throws -> SyncOutboxOperation? {
+        guard let row = try Row.fetchOne(
+            db,
+            sql: "SELECT * FROM sync_outbox WHERE id = ?",
+            arguments: [id.uuidString]
+        ) else { return nil }
+        return decodeSyncOperation(row)
+    }
+
+    private static func decodeSyncOperation(_ row: Row) -> SyncOutboxOperation? {
+        guard
+            let id = UUID(uuidString: row["id"]),
+            let aggregateId = UUID(uuidString: row["aggregate_id"]),
+            let kind = SyncOperationKind(rawValue: row["operation"]),
+            let state = SyncOperationState(rawValue: row["state"])
+        else { return nil }
+
+        let createdAt: Double = row["created_at"]
+        let nextAttemptAt: Double? = row["next_attempt_at"]
+        return SyncOutboxOperation(
+            id: id,
+            aggregateId: aggregateId,
+            kind: kind,
+            payload: row["payload"],
+            createdAt: Date(timeIntervalSince1970: createdAt),
+            attemptCount: row["attempt_count"],
+            nextAttemptAt: nextAttemptAt.map(Date.init(timeIntervalSince1970:)),
+            state: state,
+            lastError: row["last_error"]
+        )
+    }
+
     private static func storedPath(for url: URL, rootDirectory: URL) -> (path: String, kind: String) {
         let standardizedURL = url.standardizedFileURL
         let standardizedRoot = rootDirectory.standardizedFileURL
@@ -475,6 +604,10 @@ private nonisolated struct StoredSessionMetadata: Codable, Sendable {
     let pacingStyle: PacingStyle
     let editStyle: EditStyle
     let useAmbientSoundtrack: Bool
+    let revision: Int?
+    let syncState: SyncState?
+    let syncEnabled: Bool?
+    let recoveredFromProjectId: UUID?
     let createdAt: Date
     let completedAt: Date?
     let title: String
@@ -493,6 +626,10 @@ private nonisolated struct StoredSessionMetadata: Codable, Sendable {
         pacingStyle = session.pacingStyle
         editStyle = session.editStyle
         useAmbientSoundtrack = session.useAmbientSoundtrack
+        revision = session.revision
+        syncState = session.syncState
+        syncEnabled = session.syncEnabled
+        recoveredFromProjectId = session.recoveredFromProjectId
         createdAt = session.createdAt
         completedAt = session.completedAt
         title = session.title
@@ -514,6 +651,10 @@ private nonisolated struct StoredSessionMetadata: Codable, Sendable {
             pacingStyle: pacingStyle,
             editStyle: editStyle,
             useAmbientSoundtrack: useAmbientSoundtrack,
+            revision: revision ?? 0,
+            syncState: syncState ?? .localOnly,
+            syncEnabled: syncEnabled ?? false,
+            recoveredFromProjectId: recoveredFromProjectId,
             createdAt: createdAt,
             completedAt: completedAt,
             title: title

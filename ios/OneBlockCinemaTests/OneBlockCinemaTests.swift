@@ -217,6 +217,69 @@ struct OneBlockCinemaTests {
         #expect(issue.message.contains("preserved"))
     }
 
+    @Test func outboxEnqueueIsIdempotentAndRetriesAfterDeadline() async throws {
+        let (storage, _, _) = makeStorage()
+        let aggregateId = UUID()
+        let idempotencyKey = UUID()
+        let original = try await storage.enqueueSyncOperation(
+            aggregateId: aggregateId,
+            kind: .projectUpsert,
+            payload: Data("first".utf8),
+            idempotencyKey: idempotencyKey
+        )
+        let duplicate = try await storage.enqueueSyncOperation(
+            aggregateId: aggregateId,
+            kind: .projectUpsert,
+            payload: Data("second".utf8),
+            idempotencyKey: idempotencyKey
+        )
+
+        #expect(original == duplicate)
+        #expect(duplicate.payload == Data("first".utf8))
+
+        let retryAt = Date(timeIntervalSinceNow: 60)
+        try await storage.markFailed(id: original.id, error: "offline", retryAt: retryAt)
+        #expect(try await storage.loadPendingSyncOperations(now: retryAt.addingTimeInterval(-1)).isEmpty)
+
+        let pending = try await storage.loadPendingSyncOperations(now: retryAt)
+        #expect(pending.count == 1)
+        #expect(pending.first?.attemptCount == 1)
+        #expect(pending.first?.lastError == "offline")
+
+        try await storage.markCompleted(id: original.id)
+        #expect(try await storage.loadPendingSyncOperations(now: retryAt).isEmpty)
+    }
+
+    @Test func conflictResolutionKeepsServerAndCreatesRecoveredCopy() {
+        let projectId = UUID()
+        let local = FilmSession(
+            id: projectId,
+            theme: .documentary,
+            revision: 4,
+            syncState: .conflict,
+            syncEnabled: true,
+            title: "My Block"
+        )
+        let server = FilmSession(
+            id: projectId,
+            theme: .documentary,
+            revision: 5,
+            syncState: .synced,
+            syncEnabled: true,
+            title: "My Block"
+        )
+
+        let resolution = SyncConflictResolver.preserveBoth(local: local, server: server)
+
+        #expect(resolution.canonicalProject.id == server.id)
+        #expect(resolution.canonicalProject.revision == 5)
+        #expect(resolution.recoveredLocalCopy.id != local.id)
+        #expect(resolution.recoveredLocalCopy.recoveredFromProjectId == local.id)
+        #expect(resolution.recoveredLocalCopy.title.hasSuffix("Recovered Copy"))
+        #expect(resolution.recoveredLocalCopy.syncState == .localOnly)
+        #expect(!resolution.recoveredLocalCopy.syncEnabled)
+    }
+
     @Test func attachingClipCompletesMatchingPromptOnly() async throws {
         let firstPrompt = ShotPrompt(index: 0, direction: "Wide", hint: "Set the block", icon: "film")
         let secondPrompt = ShotPrompt(index: 1, direction: "Detail", hint: "Show texture", icon: "eye")

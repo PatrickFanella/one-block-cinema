@@ -13,6 +13,7 @@ Store local drafts safely for offline work without treating private media as syn
 - Media owned by the app is stored as a path relative to the app-support root so container moves do not break drafts.
 - Missing media is retained as an explicit `ClipMediaStatus.missing` record; unreadable legacy metadata is left in place and indexed in `recovery_issues`.
 - Legacy `sessions.json` and `UserDefaults` payloads are imported idempotently on first database access and are no longer mirrored after migration.
+- The same database contains a durable `sync_outbox`; operations use their UUID as an idempotency key and retain retry state across launches.
 - Drafts are local-first; sync is future work.
 
 ## Target design

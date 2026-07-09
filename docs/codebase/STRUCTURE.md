@@ -37,10 +37,12 @@
 ## Domain/service files
 
 - `FilmSession.swift`, `FilmClip.swift`, `ShotPrompt.swift` — core data models.
+- `ProductionDomain.swift` — product-facing type aliases plus sync, edit, publication, challenge, safety, and critique contracts.
+- `ServiceContracts.swift` — repository/service boundaries for templates, projects, media, rendering, auth, sync, community, critique, and analytics.
 - `FilmTheme.swift`, `PacingStyle.swift`, `EditStyle.swift` — domain options.
 - `FilmSessionViewModel.swift` — workflow state hub.
 - `PromptGenerator.swift` — theme prompt generation.
-- `SessionStorage.swift` — local persistence.
+- `SessionStorage.swift` — GRDB local persistence, media ownership, recovery records, and durable sync outbox.
 - `VideoExportService.swift` — AVFoundation export.
 
 ## UI utility files
