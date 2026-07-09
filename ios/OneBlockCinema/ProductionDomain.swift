@@ -5,7 +5,6 @@ import Foundation
 typealias FilmProject = FilmSession
 typealias ProjectShot = ShotPrompt
 typealias MediaAsset = FilmClip
-typealias RenderPlan = VideoExportPlan
 
 nonisolated enum SyncState: String, Codable, Sendable, Hashable {
     case localOnly = "local_only"

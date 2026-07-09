@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CoreGraphics
 import Testing
 @testable import OneBlockCinema
 
@@ -353,6 +354,56 @@ struct OneBlockCinemaTests {
         #expect(plan.segments[1].duration == 10)
         #expect(plan.totalDuration == 100)
         #expect(plan.wasTrimmedToMaximumDuration == true)
+    }
+
+    @Test func projectRenderPlanCarriesAspectRatioAndTimeline() {
+        let first = makeClip(1, duration: 4)
+        let second = makeClip(2, duration: 6)
+        let project = FilmSession(
+            theme: .documentary,
+            aspectRatio: .vertical,
+            clips: [first, second]
+        )
+
+        let plan = VideoExportLimits.plan(for: project)
+
+        #expect(plan.projectId == project.id)
+        #expect(plan.aspectRatio == .vertical)
+        #expect(plan.outputDimensions == RenderDimensions(width: 1080, height: 1920))
+        #expect(plan.segments.map(\.timelineStart) == [0, 4])
+        #expect(plan.segments.map(\.duration) == [4, 6])
+        #expect(plan.totalDuration == 10)
+    }
+
+    @Test func renderPlanSkipsExplicitlyMissingMedia() {
+        let available = makeClip(1, duration: 5)
+        let missing = FilmClip(
+            promptId: UUID(),
+            fileURL: URL(fileURLWithPath: "/tmp/missing.mov"),
+            duration: 8,
+            mediaStatus: .missing
+        )
+
+        let plan = VideoExportLimits.plan(for: [missing, available])
+
+        #expect(plan.segments.map(\.clip.id) == [available.id])
+        #expect(plan.totalDuration == 5)
+    }
+
+    @Test func normalizedTransformCentersAndFillsRenderFrame() {
+        let sourceSize = CGSize(width: 1920, height: 1080)
+        let renderSize = CGSize(width: 1080, height: 1920)
+        let transform = RenderCompositionBuilder.normalizedTransform(
+            naturalSize: sourceSize,
+            preferredTransform: .identity,
+            renderSize: renderSize
+        )
+        let transformed = CGRect(origin: .zero, size: sourceSize).applying(transform).standardized
+
+        #expect(abs(transformed.midX - renderSize.width / 2) < 0.001)
+        #expect(abs(transformed.midY - renderSize.height / 2) < 0.001)
+        #expect(transformed.width >= renderSize.width)
+        #expect(transformed.height >= renderSize.height)
     }
 
     @Test func clipsInPromptOrderUsesShotPromptOrder() async throws {

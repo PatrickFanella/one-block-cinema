@@ -43,7 +43,7 @@
 - `FilmSessionViewModel.swift` — workflow state hub.
 - `PromptGenerator.swift` — theme prompt generation.
 - `SessionStorage.swift` — GRDB local persistence, media ownership, recovery records, and durable sync outbox.
-- `VideoExportService.swift` — AVFoundation export.
+- `VideoExportService.swift` — shared render planning, AVPlayer composition building, orientation normalization, and cancellable AVFoundation export.
 
 ## UI utility files
 

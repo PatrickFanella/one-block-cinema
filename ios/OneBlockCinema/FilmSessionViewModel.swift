@@ -182,7 +182,7 @@ class FilmSessionViewModel {
 
     func canExportActiveSession() -> Bool {
         guard let session = activeSession, !session.clips.isEmpty else { return false }
-        return !VideoExportLimits.plan(for: session.clipsInPromptOrder).segments.isEmpty
+        return !VideoExportLimits.plan(for: session).segments.isEmpty
     }
 
     func toggleClipTitle(_ clip: FilmClip) {
@@ -218,7 +218,7 @@ class FilmSessionViewModel {
 
     func exportVideo() async {
         guard let session = activeSession, !session.clips.isEmpty else { return }
-        let plan = VideoExportLimits.plan(for: session.clipsInPromptOrder)
+        let plan = VideoExportLimits.plan(for: session)
         guard !plan.segments.isEmpty else {
             errorMessage = ExportError.noExportableClips.localizedDescription
             showError = true
@@ -239,15 +239,13 @@ class FilmSessionViewModel {
         }
 
         do {
-            let url = try await exportService.exportAssembledVideo(
-                clips: session.clipsInPromptOrder,
-                pacingStyle: session.pacingStyle,
-                editStyle: session.editStyle,
-                progressHandler: { [weak self] progress in
+            let url = try await exportService.render(
+                plan: plan,
+                progress: { [self] progress in
                     Task { @MainActor in
-                        guard self?.activeExportID == exportID, self?.isExporting == true else { return }
-                        self?.exportProgress = min(max(progress, 0), 1)
-                        self?.exportStatusMessage = "Exporting… \(Int((self?.exportProgress ?? 0) * 100))%"
+                        guard activeExportID == exportID, isExporting else { return }
+                        exportProgress = min(max(progress, 0), 1)
+                        exportStatusMessage = "Exporting… \(Int(exportProgress * 100))%"
                     }
                 }
             )
@@ -256,11 +254,21 @@ class FilmSessionViewModel {
             exportStatusMessage = "Export complete. Opening share sheet…"
             completeSession()
             showExportShare = true
+        } catch is CancellationError {
+            exportProgress = 0
+            exportStatusMessage = "Export cancelled. Your draft is unchanged."
         } catch {
             errorMessage = error.localizedDescription
             exportStatusMessage = "Export failed."
             showError = true
         }
+    }
+
+    func cancelExport() {
+        guard isExporting else { return }
+        activeExportID = nil
+        exportStatusMessage = "Cancelling export…"
+        Task { await exportService.cancelCurrentRender() }
     }
 
     func completeSession() {
