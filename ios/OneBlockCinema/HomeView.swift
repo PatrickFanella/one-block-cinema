@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HomeView: View {
     @Bindable var viewModel: FilmSessionViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared: Bool = false
     @State private var selectedTemplate: FilmTemplate?
 
@@ -24,7 +25,11 @@ struct HomeView: View {
         .background(CinemaColors.background.ignoresSafeArea())
         .overlay { FilmGrainView() }
         .onAppear {
-            withAnimation(.easeOut(duration: 0.6)) { appeared = true }
+            if reduceMotion {
+                appeared = true
+            } else {
+                withAnimation(.easeOut(duration: 0.6)) { appeared = true }
+            }
         }
     }
 
@@ -38,6 +43,7 @@ struct HomeView: View {
             Text("Cinema")
                 .font(.system(.largeTitle, design: .serif, weight: .bold))
                 .foregroundStyle(CinemaColors.warmWhite)
+                .accessibilityIdentifier("home.title")
 
             Text("Turn your surroundings into a short film")
                 .font(.subheadline)
@@ -45,7 +51,7 @@ struct HomeView: View {
         }
         .padding(.top, 16)
         .opacity(appeared ? 1 : 0)
-        .offset(y: appeared ? 0 : 10)
+        .offset(y: reduceMotion || appeared ? 0 : 10)
     }
 
     private func continueSessionCard(_ session: FilmSession) -> some View {
@@ -93,8 +99,10 @@ struct HomeView: View {
             )
         }
         .opacity(appeared ? 1 : 0)
-        .offset(y: appeared ? 0 : 15)
-        .animation(.spring(response: 0.5).delay(0.1), value: appeared)
+        .offset(y: reduceMotion || appeared ? 0 : 15)
+        .animation(reduceMotion ? nil : .spring(response: 0.5).delay(0.1), value: appeared)
+        .accessibilityLabel("Continue \(session.title)")
+        .accessibilityValue("\(session.completedPromptCount) of \(session.prompts.count) shots complete")
         .navigationDestination(item: $selectedTemplate) { _ in
             ShotSequenceView(viewModel: viewModel)
         }
@@ -108,7 +116,7 @@ struct HomeView: View {
             Spacer()
         }
         .opacity(appeared ? 1 : 0)
-        .animation(.easeOut(duration: 0.5).delay(0.2), value: appeared)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.5).delay(0.2), value: appeared)
     }
 
     private var themeCards: some View {
@@ -119,8 +127,11 @@ struct HomeView: View {
                     selectedTemplate = template
                 }
                 .opacity(appeared ? 1 : 0)
-                .offset(y: appeared ? 0 : 20)
-                .animation(.spring(response: 0.5).delay(0.15 + Double(index) * 0.06), value: appeared)
+                .offset(y: reduceMotion || appeared ? 0 : 20)
+                .animation(
+                    reduceMotion ? nil : .spring(response: 0.5).delay(0.15 + Double(index) * 0.06),
+                    value: appeared
+                )
             }
         }
     }
@@ -129,6 +140,7 @@ struct HomeView: View {
 struct TemplateCard: View {
     let template: FilmTemplate
     let action: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var theme: FilmTheme { template.theme }
 
@@ -150,10 +162,7 @@ struct TemplateCard: View {
                                 .stroke(theme.accentColor.opacity(0.4), lineWidth: 1)
                         )
 
-                    Image(systemName: theme.icon)
-                        .font(.title2)
-                        .foregroundStyle(theme.accentColor)
-                        .symbolEffect(.pulse, options: .repeating.speed(0.3))
+                    templateIcon
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -163,12 +172,16 @@ struct TemplateCard: View {
                     Text(template.subtitle)
                         .font(.caption)
                         .foregroundStyle(CinemaColors.dimText)
-                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
 
-                    HStack(spacing: 8) {
-                        Label(template.aspectRatio.rawValue, systemImage: "aspectratio")
-                        Label("\(template.durationTarget.targetSeconds)s", systemImage: "timer")
-                        Label("\(template.shotCount) shots", systemImage: "film.stack")
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 8) {
+                            templateMetadata
+                        }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            templateMetadata
+                        }
                     }
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(theme.accentColor.opacity(0.8))
@@ -185,5 +198,29 @@ struct TemplateCard: View {
             .clipShape(.rect(cornerRadius: 16))
         }
         .sensoryFeedback(.impact(flexibility: .soft), trigger: template.id)
+        .accessibilityIdentifier("template.\(template.id)")
+        .accessibilityLabel("\(template.displayName). \(template.subtitle)")
+        .accessibilityValue(
+            "\(template.shotCount) shots, \(template.durationTarget.targetSeconds) seconds, \(template.aspectRatio.rawValue)"
+        )
+    }
+
+    @ViewBuilder
+    private var templateIcon: some View {
+        let icon = Image(systemName: theme.icon)
+            .font(.title2)
+            .foregroundStyle(theme.accentColor)
+        if reduceMotion {
+            icon
+        } else {
+            icon.symbolEffect(.pulse, options: .repeating.speed(0.3))
+        }
+    }
+
+    @ViewBuilder
+    private var templateMetadata: some View {
+        Label(template.aspectRatio.rawValue, systemImage: "aspectratio")
+        Label("\(template.durationTarget.targetSeconds)s", systemImage: "timer")
+        Label("\(template.shotCount) shots", systemImage: "film.stack")
     }
 }

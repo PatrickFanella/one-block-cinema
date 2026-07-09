@@ -18,6 +18,7 @@ This audit compares the generated iOS app shell with the MVP promise in `docs/pr
 - Users can inspect/remove clips, set non-destructive in/out points, change the durable playback order, choose cuts/crossfades and pacing, add clip title overlays, mix source levels with recorded/imported voiceover and user-provided ambient audio, choose a standard/silent-film look, and continue to preview/export (`ios/OneBlockCinema/AssemblyView.swift`, `ios/OneBlockCinema/VoiceoverRecorder.swift`, `ios/OneBlockCinema/FilmSessionViewModel.swift`).
 - Users can play the assembled AVFoundation composition, export the same immutable render plan, cancel with live progress, and open a native share sheet (`ios/OneBlockCinema/PreviewExportView.swift`, `ios/OneBlockCinema/VideoExportService.swift`).
 - Sessions can be saved, loaded, resumed, completed, and deleted through GRDB SQLite and relative app-support media paths, with idempotent legacy migration and missing-media recovery (`ios/OneBlockCinema/SessionStorage.swift`, `ios/OneBlockCinema/FilmSessionViewModel.swift`).
+- Core create/library/shot/camera/edit flows honor Reduce Motion/Transparency, use scalable layouts, and expose explicit VoiceOver labels, values, hints, and stable UI-test identifiers; device assistive-technology and localization audits remain gates (`docs/technical/ACCESSIBILITY.md`).
 
 ## Partial behavior
 

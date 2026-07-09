@@ -54,6 +54,7 @@ docs-check: ## Verify required docs exist
 	@test -f docs/legal/RETENTION_SCHEDULE.md
 	@test -f docs/legal/APP_STORE_PRIVACY.md
 	@test -f docs/runbooks/ACCOUNT_DELETION.md
+	@test -f docs/technical/ACCESSIBILITY.md
 
 templates-check: ## Validate product template data
 	@python3 scripts/validate_templates.py

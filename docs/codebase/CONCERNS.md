@@ -8,6 +8,7 @@
 - Preview and export now share one render plan with durable interruption checkpoints, but representative-device, background-expiration, and HDR/variable-frame-rate fixture QA remain outstanding.
 - Durable trim/reorder, cuts/crossfades, clip titles/volume, project voiceover/ambient tracks, and standard/silent-film looks now feed preview and export, but need physical-device accessibility and representative-media validation; standalone intertitles remain incomplete.
 - Ten templates now load from a versioned bundled catalog; editorial, device, and accessibility QA remain incomplete.
+- Core screens now respect Reduce Motion/Transparency and expose improved Dynamic Type, VoiceOver, and keyboard behavior; physical-device assistive-technology, contrast, Voice Control, pseudolocalization, and right-to-left audits remain release gates.
 
 ## Architecture risks
 

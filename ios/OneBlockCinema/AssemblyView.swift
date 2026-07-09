@@ -447,6 +447,7 @@ struct ClipDetailSheet: View {
     @State private var titleText: String
     @State private var volume: Double
     @State private var transitionStyle: TransitionStyle
+    @FocusState private var titleFieldFocused: Bool
 
     init(clip: FilmClip, viewModel: FilmSessionViewModel) {
         self.clip = clip
@@ -508,6 +509,8 @@ struct ClipDetailSheet: View {
                     Toggle("Show title over clip", isOn: $showTitle)
                     TextField("Title text", text: $titleText)
                         .disabled(!showTitle)
+                        .focused($titleFieldFocused)
+                        .submitLabel(.done)
                     Text("Titles appear briefly at the beginning of this clip in preview and export.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -556,6 +559,10 @@ struct ClipDetailSheet: View {
                         )
                         dismiss()
                     }
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { titleFieldFocused = false }
                 }
             }
         }

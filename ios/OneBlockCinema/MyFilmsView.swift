@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MyFilmsView: View {
     @Bindable var viewModel: FilmSessionViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared: Bool = false
     @State private var selectedSessionID: UUID?
 
@@ -37,10 +38,15 @@ struct MyFilmsView: View {
                     .font(.system(.caption, design: .monospaced, weight: .bold))
                     .tracking(3)
                     .foregroundStyle(CinemaColors.amber)
+                    .accessibilityIdentifier("films.title")
             }
         }
         .onAppear {
-            withAnimation(.easeOut(duration: 0.5)) { appeared = true }
+            if reduceMotion {
+                appeared = true
+            } else {
+                withAnimation(.easeOut(duration: 0.5)) { appeared = true }
+            }
         }
         .task {
             await viewModel.loadSessions()
@@ -153,10 +159,7 @@ struct MyFilmsView: View {
 
     private var emptyState: some View {
         VStack(spacing: 16) {
-            Image(systemName: "film.stack")
-                .font(.system(size: 48))
-                .foregroundStyle(CinemaColors.surfaceLight)
-                .symbolEffect(.pulse, options: .repeating.speed(0.3))
+            emptyStateIcon
 
             Text("No Films Yet")
                 .font(.system(.title3, design: .serif, weight: .semibold))
@@ -169,6 +172,19 @@ struct MyFilmsView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 100)
+    }
+
+    @ViewBuilder
+    private var emptyStateIcon: some View {
+        let icon = Image(systemName: "film.stack")
+            .font(.system(size: 48))
+            .foregroundStyle(CinemaColors.surfaceLight)
+            .accessibilityHidden(true)
+        if reduceMotion {
+            icon
+        } else {
+            icon.symbolEffect(.pulse, options: .repeating.speed(0.3))
+        }
     }
 
     private func filmCard(_ session: FilmSession, index: Int) -> some View {
@@ -285,8 +301,13 @@ struct MyFilmsView: View {
             }
         }
         .opacity(appeared ? 1 : 0)
-        .offset(y: appeared ? 0 : 15)
-        .animation(.spring(response: 0.5).delay(Double(index) * 0.05), value: appeared)
+        .offset(y: reduceMotion || appeared ? 0 : 15)
+        .animation(
+            reduceMotion ? nil : .spring(response: 0.5).delay(Double(index) * 0.05),
+            value: appeared
+        )
+        .accessibilityLabel(filmAccessibilityLabel(session))
+        .accessibilityHint("Opens the guided shots for this film")
     }
 
     private func open(_ session: FilmSession) {
@@ -296,5 +317,24 @@ struct MyFilmsView: View {
 
     private func formattedBytes(_ bytes: Int64) -> String {
         ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
+
+    private func filmAccessibilityLabel(_ session: FilmSession) -> String {
+        var parts = [
+            session.title,
+            session.templateTitle ?? session.theme.displayName,
+            "\(session.clips.count) clips",
+            "\(Int(session.progress * 100)) percent complete",
+        ]
+        if session.missingClipCount > 0 {
+            parts.append("\(session.missingClipCount) missing clips")
+        }
+        if session.missingAudioTrackCount > 0 {
+            parts.append("\(session.missingAudioTrackCount) missing audio tracks")
+        }
+        if viewModel.hasInterruptedRender(for: session.id) {
+            parts.append("export interrupted")
+        }
+        return parts.joined(separator: ", ")
     }
 }

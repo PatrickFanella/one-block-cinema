@@ -5,6 +5,7 @@ import SwiftUI
 
 struct CaptureView: View {
     @Bindable var viewModel: FilmSessionViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
@@ -84,6 +85,7 @@ struct CaptureView: View {
                 Image(systemName: "xmark")
                     .frame(width: 44, height: 44)
             }
+            .accessibilityLabel("Close camera")
 
             Spacer()
 
@@ -111,6 +113,7 @@ struct CaptureView: View {
                         .frame(width: 40, height: 44)
                 }
                 .disabled(!camera.isTorchAvailable || camera.isRecording || camera.capturedURL != nil)
+                .accessibilityLabel(camera.isTorchOn ? "Turn torch off" : "Turn torch on")
 
                 Button {
                     Task { await camera.setMicrophoneEnabled(!camera.microphoneEnabled) }
@@ -119,6 +122,7 @@ struct CaptureView: View {
                         .frame(width: 40, height: 44)
                 }
                 .disabled(camera.isRecording || camera.capturedURL != nil)
+                .accessibilityLabel(camera.microphoneEnabled ? "Mute microphone" : "Enable microphone")
 
                 Button {
                     Task { await camera.switchCamera() }
@@ -127,6 +131,7 @@ struct CaptureView: View {
                         .frame(width: 40, height: 44)
                 }
                 .disabled(camera.isRecording || camera.capturedURL != nil || camera.state != .ready)
+                .accessibilityLabel("Switch camera")
             }
         }
         .font(.body.weight(.semibold))
@@ -265,6 +270,8 @@ struct CaptureView: View {
                     in: 1...camera.maximumZoomFactor
                 )
                 .tint(CinemaColors.amber)
+                .accessibilityLabel("Camera zoom")
+                .accessibilityValue(String(format: "%.1f times", camera.zoomFactor))
                 Image(systemName: "plus.magnifyingglass")
                 Text(String(format: "%.1f×", camera.zoomFactor))
                     .font(.caption.monospacedDigit())
@@ -346,7 +353,7 @@ struct CaptureView: View {
                 RoundedRectangle(cornerRadius: camera.isRecording ? 7 : 30)
                     .fill(.red)
                     .frame(width: camera.isRecording ? 34 : 58, height: camera.isRecording ? 34 : 58)
-                    .animation(.snappy, value: camera.isRecording)
+                    .animation(reduceMotion ? nil : .snappy, value: camera.isRecording)
             }
             .accessibilityLabel(camera.isRecording ? "Stop recording" : "Start recording")
         }
