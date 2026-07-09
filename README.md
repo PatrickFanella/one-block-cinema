@@ -18,6 +18,7 @@ Current implementation truth:
 - clip title overlays, per-clip audio levels, standard/silent-film looks, and real AVPlayer preview
 - cancellable, orientation-normalized 1080p-class MP4 export from the same render plan
 - credential-free Fastify/pg-boss, Supabase RLS migration, and admin moderation-console foundations; external services remain disabled
+- fail-closed development/production client configuration, Apple privacy manifest checks, and legal/retention release drafts
 - Linux `make verify` checks docs, templates, migrations, TypeScript, contracts, and secrets; Xcode execution needs macOS
 - product and codebase planning docs
 - Open Pilot-ready issue and PR templates

@@ -67,6 +67,35 @@ struct OneBlockCinemaTests {
         #expect(templates.flatMap(\.shotPrompts).allSatisfy { !$0.id.isEmpty && $0.targetSeconds > 0 })
     }
 
+    @Test func productionConfigurationRequiresSecureEndpointsBeforeFeatureActivation() {
+        let configuration = AppConfiguration(infoDictionary: [
+            "OBCEnvironment": "production",
+            "OBCAPIBaseURL": "http://api.example.com",
+            "OBCSupabaseURL": "https://project.supabase.co",
+            "OBCFeatureCommunity": true,
+            "OBCFeatureAICoach": true,
+        ])
+
+        #expect(configuration.environment == .production)
+        #expect(configuration.apiBaseURL == nil)
+        #expect(configuration.supabaseURL?.absoluteString == "https://project.supabase.co")
+        #expect(!configuration.communityEnabled)
+        #expect(!configuration.aiCoachEnabled)
+    }
+
+    @Test func developmentConfigurationAllowsLocalServicesButDefaultsFlagsOff() {
+        let configuration = AppConfiguration(infoDictionary: [
+            "OBCEnvironment": "development",
+            "OBCAPIBaseURL": "http://127.0.0.1:3000",
+            "OBCSupabaseURL": "http://localhost:54321",
+        ])
+
+        #expect(configuration.apiBaseURL?.host == "127.0.0.1")
+        #expect(configuration.supabaseURL?.host == "localhost")
+        #expect(!configuration.communityEnabled)
+        #expect(!configuration.aiCoachEnabled)
+    }
+
     @Test func sessionPromptsPreserveTemplateIdentityAndTiming() throws {
         let template = try #require(TemplateCatalog.template(id: "first-block-story"))
         let prompts = PromptGenerator.generatePrompts(for: template)

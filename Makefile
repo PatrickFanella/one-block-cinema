@@ -1,12 +1,12 @@
 SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 
-.PHONY: help verify fmt lint test ios-build ios-test archive-check docs-check templates-check migrations-check backend-check open-pilot-check secrets-check xcode-note
+.PHONY: help verify fmt lint test ios-build ios-test archive-check docs-check templates-check privacy-check migrations-check backend-check open-pilot-check secrets-check xcode-note
 
 help: ## Show commands
 	@awk 'BEGIN {FS = ":.*##"; printf "Commands:\n"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-verify: fmt lint test docs-check templates-check migrations-check backend-check open-pilot-check secrets-check xcode-note ## Run all checks
+verify: fmt lint test docs-check templates-check privacy-check migrations-check backend-check open-pilot-check secrets-check xcode-note ## Run all checks
 
 fmt: ## Format files where repo tooling is available
 	@if command -v swiftformat >/dev/null 2>&1; then \
@@ -48,9 +48,17 @@ docs-check: ## Verify required docs exist
 	@test -f docs/product/MVP_SCOPE.md
 	@test -f docs/technical/API_SPEC.md
 	@test -f docs/codebase/STACK.md
+	@test -f docs/legal/PRIVACY_POLICY.md
+	@test -f docs/legal/TERMS.md
+	@test -f docs/legal/SUPPORT.md
+	@test -f docs/legal/RETENTION_SCHEDULE.md
+	@test -f docs/legal/APP_STORE_PRIVACY.md
 
 templates-check: ## Validate product template data
 	@python3 scripts/validate_templates.py
+
+privacy-check: ## Validate the bundled Apple privacy manifest
+	@python3 scripts/check_privacy_manifest.py
 
 migrations-check: ## Validate required tables and RLS coverage
 	@python3 scripts/check_migrations.py

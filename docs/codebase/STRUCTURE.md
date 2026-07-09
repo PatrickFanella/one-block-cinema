@@ -43,6 +43,8 @@
 - `FilmSession.swift`, `FilmClip.swift`, `ShotPrompt.swift` — core data models.
 - `ProductionDomain.swift` — product-facing type aliases plus sync, edit, publication, challenge, safety, and critique contracts.
 - `ServiceContracts.swift` — repository/service boundaries for templates, projects, media, rendering, auth, sync, community, critique, and analytics.
+- `Config.swift` — fail-closed public environment and client feature configuration.
+- `PrivacyInfo.xcprivacy` — local-only Apple privacy manifest.
 - `FilmTheme.swift`, `PacingStyle.swift`, `EditStyle.swift` — domain options.
 - `FilmSessionViewModel.swift` — workflow state hub.
 - `PromptGenerator.swift` — theme prompt generation.
