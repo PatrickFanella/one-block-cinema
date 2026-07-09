@@ -5,7 +5,7 @@
 - Photos/library import through iOS media APIs.
 - AVFoundation video export.
 - Native share sheet/export handoff.
-- Local app-support persistence for draft metadata and imported media, with legacy `UserDefaults` migration.
+- GRDB SQLite persistence for draft metadata and relative app-support media paths, with legacy JSON/`UserDefaults` migration and recovery records.
 
 ## Planned MVP integrations
 

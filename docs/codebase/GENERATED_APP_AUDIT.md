@@ -17,7 +17,7 @@ This audit compares the generated iOS app shell with the MVP promise in `docs/pr
 - Users can import a video from the Photos library and attach it to the current prompt (`ios/OneBlockCinema/CaptureView.swift:39-43`, `ios/OneBlockCinema/CaptureView.swift:191-205`, `ios/OneBlockCinema/FilmSessionViewModel.swift:81-89`).
 - Users can review prompt-order clips, inspect clip details, remove clips, and continue to preview/export. Editing metadata exists in the model, but editing controls remain deliberately unavailable (`ios/OneBlockCinema/AssemblyView.swift`, `ios/OneBlockCinema/FilmSessionViewModel.swift`).
 - Users can open a preview/export screen, step through clips, start/stop simple auto-advance playback, export via AVFoundation, and open a native share sheet (`ios/OneBlockCinema/PreviewExportView.swift:40-49`, `ios/OneBlockCinema/PreviewExportView.swift:53-187`, `ios/OneBlockCinema/PreviewExportView.swift:189-232`, `ios/OneBlockCinema/VideoExportService.swift:4-61`).
-- Sessions can be saved, loaded, resumed, completed, and deleted through app-support JSON/media storage with legacy `UserDefaults` migration (`ios/OneBlockCinema/SessionStorage.swift`, `ios/OneBlockCinema/FilmSessionViewModel.swift`).
+- Sessions can be saved, loaded, resumed, completed, and deleted through GRDB SQLite and relative app-support media paths, with idempotent legacy migration and missing-media recovery (`ios/OneBlockCinema/SessionStorage.swift`, `ios/OneBlockCinema/FilmSessionViewModel.swift`).
 
 ## Partial behavior
 
@@ -26,7 +26,7 @@ This audit compares the generated iOS app shell with the MVP promise in `docs/pr
 - Assembly/editing is partial: clip order mutation, title metadata, pacing/style choices, and soundtrack metadata exist, but there is no trim UI and the style/pacing controls are not a verified editor pipeline (`ios/OneBlockCinema/AssemblyView.swift:121-258`, `ios/OneBlockCinema/FilmSessionViewModel.swift:99-129`, `docs/product/MVP_SCOPE.md:28-35`).
 - Preview is partial: it displays symbolic clip cards and a timed clip stepper rather than actual rendered playback of the assembled video (`ios/OneBlockCinema/PreviewExportView.swift:53-116`, `ios/OneBlockCinema/PreviewExportView.swift:189-221`, `docs/product/MVP_SCOPE.md:32`).
 - Export/share is partial: local MP4 concatenation, a 180-second hard cap, and the share sheet exist, but orientation normalization, real rendered preview, transitions, titles, and template-specific render sizing are not complete (`ios/OneBlockCinema/VideoExportService.swift`, `ios/OneBlockCinema/PreviewExportView.swift`).
-- Offline creation is partial: app-support metadata/media storage supports basic resume, but relative media paths, missing-media recovery, database migrations, and conflict-aware sync remain future work (`ios/OneBlockCinema/SessionStorage.swift`, `docs/technical/DRAFT_PERSISTENCE.md`).
+- Offline creation is partial: GRDB metadata, relative media paths, missing-media recovery, and schema migrations support durable resume, but recovery UI, storage cleanup, and conflict-aware sync remain future work (`ios/OneBlockCinema/SessionStorage.swift`, `docs/technical/DRAFT_PERSISTENCE.md`).
 
 ## Missing behavior
 
@@ -52,5 +52,5 @@ This audit compares the generated iOS app shell with the MVP promise in `docs/pr
 1. **Backend/auth/sync architecture is absent.** MVP requires auth, sync, publish, community, challenges, comments, moderation, and age gating, while the API spec is only planned (`docs/product/PRD.md:70-85`, `docs/technical/API_SPEC.md:3-13`).
 2. **No authentication path exists.** This blocks sync, publishing, private-until-publish identity, comments, and community participation (`docs/product/PRD.md:24`, `docs/product/PRD.md:72-74`, `docs/product/MVP_SCOPE.md:57`).
 3. **No publish/community safety path exists.** Publish, comments, reports, moderation, and age gating must be defined before any public community launch (`docs/product/PRD.md:61-68`, `docs/product/MVP_SCOPE.md:64-67`, `docs/technical/API_SPEC.md:39-56`).
-4. **Durable database and sync architecture are absent.** Bundled templates now snapshot the required local data, but projects still need migration-safe metadata storage, relative media paths, recovery, and later conflict-aware sync.
+4. **Sync architecture is absent.** The durable local GRDB store, relative media paths, and recovery records are now present, but resumable cloud media transfer and conflict-aware sync are not.
 5. **Capture/preview/export claims need productization or explicit scope cuts.** Camera recording, true rendered preview playback, trim support, and normalized aspect-ratio export are not complete enough to satisfy the production roadmap (`ios/OneBlockCinema/CaptureView.swift`, `ios/OneBlockCinema/PreviewExportView.swift`, `ios/OneBlockCinema/VideoExportService.swift`).

@@ -23,8 +23,23 @@ struct OneBlockCinemaTests {
         let suiteName = "OneBlockCinemaTests.\(UUID().uuidString)"
         let userDefaults = UserDefaults(suiteName: suiteName)!
         userDefaults.removePersistentDomain(forName: suiteName)
-        let storage = SessionStorage(userDefaults: userDefaults)
+        let rootDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("OneBlockCinemaTests-\(UUID().uuidString)", isDirectory: true)
+        let storage = SessionStorage(userDefaults: userDefaults, rootDirectory: rootDirectory)
         return (FilmSessionViewModel(storage: storage), storage)
+    }
+
+    private func makeStorage() -> (SessionStorage, UserDefaults, URL) {
+        let suiteName = "OneBlockCinemaStorageTests.\(UUID().uuidString)"
+        let userDefaults = UserDefaults(suiteName: suiteName)!
+        userDefaults.removePersistentDomain(forName: suiteName)
+        let rootDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("OneBlockCinemaStorageTests-\(UUID().uuidString)", isDirectory: true)
+        return (
+            SessionStorage(userDefaults: userDefaults, rootDirectory: rootDirectory),
+            userDefaults,
+            rootDirectory
+        )
     }
 
     @Test func promptGeneratorCreatesOrderedPromptsForEachTheme() {
@@ -131,6 +146,75 @@ struct OneBlockCinemaTests {
         let reloadedViewModel = FilmSessionViewModel(storage: storage)
         await reloadedViewModel.loadSessions()
         #expect(reloadedViewModel.sessions.isEmpty)
+    }
+
+    @Test func persistsProjectMetadataAndRelativeMediaPaths() async throws {
+        let (storage, _, rootDirectory) = makeStorage()
+        let sourceURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("source-\(UUID().uuidString).mov")
+        try Data("fixture-video".utf8).write(to: sourceURL)
+        defer { try? FileManager.default.removeItem(at: sourceURL) }
+
+        let prompt = ShotPrompt(index: 0, direction: "Opening", hint: "Start here", icon: "film")
+        let sessionId = UUID()
+        let durableURL = try await storage.copyClip(sourceURL, for: sessionId)
+        let clip = FilmClip(promptId: prompt.id, fileURL: durableURL, duration: 2)
+        var session = FilmSession(id: sessionId, theme: .documentary, prompts: [prompt])
+        let attached = session.attachClip(clip)
+        #expect(attached)
+
+        try await storage.saveSessions([session])
+        let loaded = try #require(try await storage.loadSessions().first)
+        let loadedClip = try #require(loaded.clips.first)
+
+        #expect(loaded.id == session.id)
+        #expect(loadedClip.fileURL == durableURL.standardizedFileURL)
+        #expect(loadedClip.mediaStatus == .available)
+        #expect(FileManager.default.fileExists(atPath: rootDirectory.appendingPathComponent("projects.sqlite").path))
+    }
+
+    @Test func missingMediaIsRecoveredAsAnExplicitState() async throws {
+        let (storage, _, _) = makeStorage()
+        let sourceURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("source-\(UUID().uuidString).mov")
+        try Data("fixture-video".utf8).write(to: sourceURL)
+        defer { try? FileManager.default.removeItem(at: sourceURL) }
+
+        let prompt = ShotPrompt(index: 0, direction: "Opening", hint: "Start here", icon: "film")
+        let sessionId = UUID()
+        let durableURL = try await storage.copyClip(sourceURL, for: sessionId)
+        var session = FilmSession(id: sessionId, theme: .documentary, prompts: [prompt])
+        let attached = session.attachClip(FilmClip(promptId: prompt.id, fileURL: durableURL, duration: 2))
+        #expect(attached)
+        try await storage.saveSessions([session])
+
+        try await storage.deleteClipFile(at: durableURL)
+        let loadedClip = try #require(try await storage.loadSessions().first?.clips.first)
+        #expect(loadedClip.mediaStatus == .missing)
+        #expect(!loadedClip.isMediaAvailable)
+    }
+
+    @Test func migratesLegacyUserDefaultsOnlyOnce() async throws {
+        let (storage, userDefaults, _) = makeStorage()
+        let legacy = FilmSession(theme: .romance, title: "Legacy draft")
+        userDefaults.set(try JSONEncoder().encode([legacy]), forKey: "saved_film_sessions")
+
+        let firstLoad = try await storage.loadSessions()
+        #expect(firstLoad.map(\.id) == [legacy.id])
+
+        userDefaults.set(try JSONEncoder().encode([FilmSession(theme: .horror)]), forKey: "saved_film_sessions")
+        let secondLoad = try await storage.loadSessions()
+        #expect(secondLoad.map(\.id) == [legacy.id])
+    }
+
+    @Test func recordsUnreadableLegacyMetadataForRecovery() async throws {
+        let (storage, userDefaults, _) = makeStorage()
+        userDefaults.set(Data("not-json".utf8), forKey: "saved_film_sessions")
+
+        #expect(try await storage.loadSessions().isEmpty)
+        let issue = try #require(try await storage.loadRecoveryIssues().first)
+        #expect(issue.source == "UserDefaults:saved_film_sessions")
+        #expect(issue.message.contains("preserved"))
     }
 
     @Test func attachingClipCompletesMatchingPromptOnly() async throws {

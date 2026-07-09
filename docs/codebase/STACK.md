@@ -10,7 +10,7 @@
 - Swift source in `ios/OneBlockCinema/`, `ios/OneBlockCinemaTests/`, and `ios/OneBlockCinemaUITests/`.
 - SwiftUI app entry point in `ios/OneBlockCinema/OneBlockCinemaApp.swift`.
 - App shell uses Swift Observation (`@Observable`) view model state.
-- Local persistence uses JSON metadata plus imported media under app support through `SessionStorage`; legacy `UserDefaults` sessions are migrated on load.
+- Local persistence uses GRDB SQLite metadata plus relative imported-media paths under app support through `SessionStorage`; legacy JSON and `UserDefaults` sessions are migrated once.
 
 ## Apple/Xcode settings
 
@@ -23,8 +23,8 @@
 
 ## Dependencies
 
-- No Swift Package dependencies are listed in `project.pbxproj`.
-- No package manifest exists at repo root.
+- GRDB.swift 7.11.1 is pinned through Swift Package Manager for SQLite persistence and migrations.
+- No package manifest exists at repo root; Xcode owns the resolved package graph.
 - Framework imports used by source include:
   - `SwiftUI`
   - `Foundation`
@@ -32,6 +32,7 @@
   - `AVFoundation`
   - `AVKit`
   - `UniformTypeIdentifiers`
+  - `GRDB`
   - `Testing` in unit tests
   - `XCTest` in UI tests
 
@@ -39,8 +40,8 @@
 
 - `make verify` is the repo verification entrypoint.
 - Linux baseline checks docs/templates and skips Xcode-only checks with a note.
-- No Swift lint/format tool is configured yet.
-- `.gitea/workflows/template-check.yml` runs `make verify`.
+- SwiftFormat and SwiftLint check-only configuration is committed; local verification skips either tool when it is unavailable.
+- `.gitea/workflows/template-check.yml` runs portable verification and `ios-check.yml` runs macOS format, lint, test, and archive gates.
 
 ## Evidence
 

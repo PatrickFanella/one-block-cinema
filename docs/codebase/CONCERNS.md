@@ -11,15 +11,15 @@
 
 ## Architecture risks
 
-- Draft persistence now uses app-support metadata/media storage, but still stores absolute file URLs; relative-path hardening is documented in `docs/technical/DRAFT_PERSISTENCE.md`.
+- Draft persistence now uses GRDB, relative paths, and missing-media recovery; a user-facing repair workflow and storage-pressure cleanup policy remain incomplete.
 - Sync/community/auth will require backend architecture not yet implemented.
 - Offline editing plus conflict-safe sync is non-trivial.
 - Moderation and age gating must exist before mixed public community launch.
 
 ## Verification gaps
 
-- Unit tests cover template/prompt/session basics, but do not yet cover media import/export, persistence migration, or UI behavior.
-- No Swift lint/format config.
+- Unit tests cover template/prompt/session basics and persistence migration/recovery, but do not yet cover real media import/export or UI behavior.
+- Swift lint/format configuration exists; the tools remain optional locally and required on the macOS CI runner.
 - Linux baseline cannot run Xcode tests.
 
 ## Suggested first issues

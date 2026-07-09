@@ -251,6 +251,7 @@ struct CaptureView: View {
             guard let movie = try await item.loadTransferable(type: VideoTransferable.self) else {
                 throw ClipImportError.noVideoSelected
             }
+            defer { try? FileManager.default.removeItem(at: movie.url) }
             if await viewModel.addClip(from: movie.url, forPromptId: promptId) {
                 dismiss()
             }
@@ -287,13 +288,8 @@ nonisolated enum ClipFileStore {
     }
 
     private static func importedClipsDirectory() throws -> URL {
-        let baseURL = try FileManager.default.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        )
-        let directory = baseURL.appendingPathComponent("ImportedClips", isDirectory: true)
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("OneBlockCinemaImports", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory
     }

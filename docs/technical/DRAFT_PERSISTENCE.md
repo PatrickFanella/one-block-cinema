@@ -8,17 +8,19 @@ Store local drafts safely for offline work without treating private media as syn
 
 ## Current state
 
-- `SessionStorage` persists encoded `FilmSession` metadata to app support JSON and mirrors it to `UserDefaults` for legacy compatibility.
+- `SessionStorage` persists normalized project and clip metadata in a GRDB-managed SQLite database under app support.
 - Imported videos are copied into `Application Support/OneBlockCinema/Drafts/{sessionId}/Media/`.
-- `FilmClip.fileURL` currently stores absolute local file URLs; relative paths remain a future hardening step for app-container moves.
+- Media owned by the app is stored as a path relative to the app-support root so container moves do not break drafts.
+- Missing media is retained as an explicit `ClipMediaStatus.missing` record; unreadable legacy metadata is left in place and indexed in `recovery_issues`.
+- Legacy `sessions.json` and `UserDefaults` payloads are imported idempotently on first database access and are no longer mirrored after migration.
 - Drafts are local-first; sync is future work.
 
 ## Target design
 
-- Store draft metadata as JSON under app support.
+- Store project metadata in SQLite `sessions` and `clips` tables, with encoded versioned session fields retained in the session payload.
 - Store imported/captured media under `Application Support/OneBlockCinema/Drafts/{sessionId}/Media/`.
 - Keep generated thumbnails under `Application Support/Drafts/{sessionId}/Thumbnails/`.
-- Use relative paths in metadata so app-container moves do not break drafts. *(Future hardening; current implementation stores durable absolute app-support URLs.)*
+- Use relative paths in metadata so app-container moves do not break drafts.
 - Keep private drafts off network until explicit sync/publish work is implemented.
 
 ## Lifecycle
@@ -26,23 +28,23 @@ Store local drafts safely for offline work without treating private media as syn
 1. Create session from `FilmTemplate`.
 2. Copy imported/captured clip into the session media folder.
 3. Persist metadata after each prompt completion, clip add/remove, pacing change, or export state change.
-4. On resume, load metadata first. Missing-media validation is future hardening.
-5. If a media file is missing, show recoverable error and keep the draft editable. *(Future hardening.)*
+4. On resume, load metadata first and validate every referenced media file.
+5. If a media file is missing, retain the clip as a recoverable missing-media record and keep the draft metadata editable. A dedicated repair UI remains future work.
 6. Delete removes metadata and session media. Thumbnail and transient export ownership are future work.
 
 ## Migration
 
-- Read existing `UserDefaults` sessions once.
-- Write them to app support metadata files.
-- Keep original data until migration completes.
-- Mark clips whose media URLs cannot be copied as missing, not deleted.
+- Read existing `sessions.json` or `UserDefaults` sessions once.
+- Write decodable sessions into SQLite without deleting the original legacy payload.
+- Record undecodable sources in `recovery_issues` and mark the migration complete so a bad payload cannot block every launch.
+- Mark clips whose files cannot be found as missing, not deleted.
 
 ## Acceptance mapping
 
 - Metadata vs media files: defined above.
 - Migration from `UserDefaults`: one-time copy, non-destructive.
 - Save/load/delete: lifecycle steps defined.
-- Offline recovery: durable media copy is implemented; explicit missing-media state is future hardening.
+- Offline recovery: durable media copy, missing-media state, and unreadable-metadata recovery records are implemented.
 - Privacy: no automatic private draft upload.
 
 ## Test command
@@ -51,4 +53,4 @@ Store local drafts safely for offline work without treating private media as syn
 make verify
 ```
 
-Future macOS implementation tests should cover create/save/load/delete/missing-media migration.
+Persistence tests cover create/save/load/delete, relative media resolution, missing media, idempotent legacy migration, and unreadable legacy metadata.
