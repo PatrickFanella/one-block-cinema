@@ -1,6 +1,6 @@
 import Foundation
-import Testing
 @testable import OneBlockCinema
+import Testing
 
 struct LocalDataDeletionTests {
     @Test func deletesProjectsMediaRecoveryRecordsAndPendingOperations() async throws {
@@ -13,7 +13,7 @@ struct LocalDataDeletionTests {
         let storage = SessionStorage(userDefaults: userDefaults, rootDirectory: root)
 
         _ = try await storage.loadSessions()
-        #expect(!(try await storage.loadRecoveryIssues()).isEmpty)
+        #expect(try await !(storage.loadRecoveryIssues()).isEmpty)
 
         let session = FilmSession(theme: .documentary, title: "Delete me")
         let source = root.appendingPathComponent("source.mov")
@@ -30,9 +30,9 @@ struct LocalDataDeletionTests {
 
         try await storage.deleteAllLocalData()
 
-        #expect((try await storage.loadSessions()).isEmpty)
-        #expect((try await storage.loadRecoveryIssues()).isEmpty)
-        #expect((try await storage.loadPendingSyncOperations()).isEmpty)
+        #expect(try await (storage.loadSessions()).isEmpty)
+        #expect(try await (storage.loadRecoveryIssues()).isEmpty)
+        #expect(try await (storage.loadPendingSyncOperations()).isEmpty)
         #expect(!FileManager.default.fileExists(atPath: copiedMedia.path))
         #expect(userDefaults.data(forKey: "saved_film_sessions") == nil)
     }

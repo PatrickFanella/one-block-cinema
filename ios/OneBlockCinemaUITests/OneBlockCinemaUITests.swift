@@ -13,7 +13,7 @@ final class OneBlockCinemaUITests: XCTestCase {
     }
 
     @MainActor
-    func testLaunchShowsOfflineTemplateCatalog() throws {
+    func testLaunchShowsOfflineTemplateCatalog() {
         let app = XCUIApplication()
         app.launch()
 
@@ -23,11 +23,11 @@ final class OneBlockCinemaUITests: XCTestCase {
     }
 
     @MainActor
-    func testAccessibilityTextSizeKeepsTemplateActionReachable() throws {
+    func testAccessibilityTextSizeKeepsTemplateActionReachable() {
         let app = XCUIApplication()
         app.launchArguments += [
             "-UIPreferredContentSizeCategoryName",
-            "UICTContentSizeCategoryAccessibilityXXXL",
+            "UICTContentSizeCategoryAccessibilityXXXL"
         ]
         app.launch()
 
@@ -37,7 +37,7 @@ final class OneBlockCinemaUITests: XCTestCase {
     }
 
     @MainActor
-    func testSettingsExposesLocalDataExport() throws {
+    func testSettingsExposesLocalDataExport() {
         let app = XCUIApplication()
         app.launch()
 
@@ -51,7 +51,7 @@ final class OneBlockCinemaUITests: XCTestCase {
     }
 
     @MainActor
-    func testLaunchPerformance() throws {
+    func testLaunchPerformance() {
         measure(metrics: [XCTApplicationLaunchMetric()]) {
             XCUIApplication().launch()
         }

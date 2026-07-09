@@ -7,7 +7,9 @@ nonisolated struct RenderDimensions: Sendable, Equatable, Hashable {
     let width: Int
     let height: Int
 
-    var size: CGSize { CGSize(width: width, height: height) }
+    var size: CGSize {
+        CGSize(width: width, height: height)
+    }
 
     static func fullHD(for aspectRatio: TemplateAspectRatio) -> RenderDimensions {
         switch aspectRatio {
@@ -126,7 +128,7 @@ nonisolated enum VideoExportLimits {
             min(max(card.position, 0), clips.count)
         }
 
-        for position in 0...clips.count {
+        for position in 0 ... clips.count {
             for card in cardsByPosition[position, default: []] {
                 let duration = min(card.duration, max(0, maxDuration - timelineEnd))
                 guard duration > 0 else {
@@ -148,7 +150,9 @@ nonisolated enum VideoExportLimits {
                     break
                 }
             }
-            if timelineEnd >= maxDuration { break }
+            if timelineEnd >= maxDuration {
+                break
+            }
             guard clips.indices.contains(position) else { continue }
             let clip = clips[position]
             guard clip.isMediaAvailable, clip.trimmedDuration > 0 else {
@@ -246,7 +250,7 @@ nonisolated enum RenderCompositionBuilder {
         }
 
         let composition = AVMutableComposition()
-        let videoTracks = (0..<2).compactMap { _ in
+        let videoTracks = (0 ..< 2).compactMap { _ in
             composition.addMutableTrack(
                 withMediaType: .video,
                 preferredTrackID: kCMPersistentTrackID_Invalid
@@ -255,7 +259,7 @@ nonisolated enum RenderCompositionBuilder {
         guard videoTracks.count == 2 else {
             throw ExportError.trackCreationFailed
         }
-        let audioTracks = (0..<2).compactMap { _ in
+        let audioTracks = (0 ..< 2).compactMap { _ in
             composition.addMutableTrack(
                 withMediaType: .audio,
                 preferredTrackID: kCMPersistentTrackID_Invalid
@@ -294,7 +298,8 @@ nonisolated enum RenderCompositionBuilder {
             try videoTrack.insertTimeRange(timeRange, of: sourceVideoTrack, at: insertionTime)
 
             if audioTracks.indices.contains(trackIndex),
-               let sourceAudioTrack = try await asset.loadTracks(withMediaType: .audio).first {
+               let sourceAudioTrack = try await asset.loadTracks(withMediaType: .audio).first
+            {
                 let audioTrack = audioTracks[trackIndex]
                 try audioTrack.insertTimeRange(timeRange, of: sourceAudioTrack, at: insertionTime)
             }
@@ -406,7 +411,7 @@ nonisolated enum RenderCompositionBuilder {
                 withMediaType: .audio,
                 preferredTrackID: kCMPersistentTrackID_Invalid
             ) else { throw ExportError.trackCreationFailed }
-            let assetDuration = max(0, CMTimeGetSeconds(try await asset.load(.duration)))
+            let assetDuration = try await max(0, CMTimeGetSeconds(asset.load(.duration)))
             guard assetDuration.isFinite, assetDuration > 0 else {
                 throw ExportError.invalidAudio(projectTrack.kind)
             }
@@ -652,7 +657,7 @@ actor VideoExportService: RenderService {
         let progressTask = Task {
             for await state in exportSession.states(updateInterval: 0.1) {
                 guard !Task.isCancelled else { return }
-                if case .exporting(let exportProgress) = state {
+                if case let .exporting(exportProgress) = state {
                     progress(0.1 + exportProgress.fractionCompleted * 0.9)
                 }
             }
@@ -685,11 +690,11 @@ actor VideoExportService: RenderService {
             forKeys: [.volumeAvailableCapacityForImportantUsageKey]
         )
         guard let available = values.volumeAvailableCapacityForImportantUsage else { return }
-        let minimumBytes = max(Int64(100 * 1_024 * 1_024), Int64(plan.totalDuration * 4 * 1_024 * 1_024))
+        let minimumBytes = max(Int64(100 * 1024 * 1024), Int64(plan.totalDuration * 4 * 1024 * 1024))
         guard available >= minimumBytes else {
             throw ExportError.insufficientStorage(
-                requiredMegabytes: Int(minimumBytes / 1_024 / 1_024),
-                availableMegabytes: Int(available / 1_024 / 1_024)
+                requiredMegabytes: Int(minimumBytes / 1024 / 1024),
+                availableMegabytes: Int(available / 1024 / 1024)
             )
         }
     }
@@ -715,19 +720,19 @@ nonisolated enum ExportError: Error, LocalizedError, Sendable {
             "Failed to create video tracks."
         case .exportSessionFailed:
             "Failed to create an H.264 export session."
-        case .missingClip(let name):
+        case let .missingClip(name):
             "Missing clip file: \(name)"
-        case .invalidClip(let name):
+        case let .invalidClip(name):
             "Clip is not readable video: \(name)"
-        case .missingAudio(let kind):
+        case let .missingAudio(kind):
             "The \(kind.rawValue) audio file is missing. Replace or remove it in Assembly."
-        case .invalidAudio(let kind):
+        case let .invalidAudio(kind):
             "The \(kind.rawValue) audio file is not readable. Replace it in Assembly."
         case .incompleteExport:
             "Export stopped because one or more clips could not be included."
-        case .insufficientStorage(let required, let available):
+        case let .insufficientStorage(required, available):
             "Export needs about \(required) MB free, but only \(available) MB is available."
-        case .exportFailed(let message):
+        case let .exportFailed(message):
             "Export failed: \(message)"
         }
     }

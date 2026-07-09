@@ -8,7 +8,10 @@ struct PreviewExportView: View {
     @State private var previewError: String?
     @State private var showShareSheet = false
 
-    private var session: FilmSession? { viewModel.activeSession }
+    private var session: FilmSession? {
+        viewModel.activeSession
+    }
+
     private var exportPlan: RenderPlan? {
         guard let session else { return nil }
         return VideoExportLimits.plan(for: session)
@@ -22,7 +25,7 @@ struct PreviewExportView: View {
             session.id.uuidString,
             session.aspectRatio?.rawValue ?? "16:9",
             session.pacingStyle.rawValue,
-            session.editStyle.rawValue,
+            session.editStyle.rawValue
         ].joined(separator: ":")
         return "\(project):\(clips):\(audio)"
     }
@@ -37,7 +40,7 @@ struct PreviewExportView: View {
             clip.titleText,
             String(clip.volume),
             clip.transitionStyle.rawValue,
-            clip.mediaStatus.rawValue,
+            clip.mediaStatus.rawValue
         ].joined(separator: ":")
     }
 
@@ -46,7 +49,7 @@ struct PreviewExportView: View {
             track.id.uuidString,
             track.kind.rawValue,
             String(track.duration),
-            String(track.volume),
+            String(track.volume)
         ].joined(separator: ":")
     }
 
@@ -225,29 +228,51 @@ struct PreviewExportView: View {
     }
 
     private var exportStateIcon: String {
-        if viewModel.isExporting { return "arrow.triangle.2.circlepath" }
-        if viewModel.exportedVideoURL != nil { return "checkmark.circle.fill" }
-        if exportPlan?.segments.isEmpty != false { return "exclamationmark.triangle.fill" }
-        if exportPlan?.wasTrimmedToMaximumDuration == true { return "scissors" }
+        if viewModel.isExporting {
+            return "arrow.triangle.2.circlepath"
+        }
+        if viewModel.exportedVideoURL != nil {
+            return "checkmark.circle.fill"
+        }
+        if exportPlan?.segments.isEmpty != false {
+            return "exclamationmark.triangle.fill"
+        }
+        if exportPlan?.wasTrimmedToMaximumDuration == true {
+            return "scissors"
+        }
         return "film.stack"
     }
 
     private var exportStateTint: Color {
-        if viewModel.exportedVideoURL != nil { return .green }
-        if exportPlan?.segments.isEmpty != false { return .red }
+        if viewModel.exportedVideoURL != nil {
+            return .green
+        }
+        if exportPlan?.segments.isEmpty != false {
+            return .red
+        }
         return CinemaColors.amber
     }
 
     private var exportStateTitle: String {
-        if viewModel.isExporting { return "EXPORTING" }
-        if viewModel.exportedVideoURL != nil { return "READY TO SHARE" }
-        if exportPlan?.segments.isEmpty != false { return "NO EXPORTABLE CLIPS" }
-        if exportPlan?.wasTrimmedToMaximumDuration == true { return "DURATION GUARDED" }
+        if viewModel.isExporting {
+            return "EXPORTING"
+        }
+        if viewModel.exportedVideoURL != nil {
+            return "READY TO SHARE"
+        }
+        if exportPlan?.segments.isEmpty != false {
+            return "NO EXPORTABLE CLIPS"
+        }
+        if exportPlan?.wasTrimmedToMaximumDuration == true {
+            return "DURATION GUARDED"
+        }
         return "LOCAL EXPORT READY"
     }
 
     private var exportStateMessage: String {
-        if let message = viewModel.exportStatusMessage { return message }
+        if let message = viewModel.exportStatusMessage {
+            return message
+        }
         if exportPlan?.segments.isEmpty != false {
             return "Import at least one available video clip with a readable duration before exporting."
         }
@@ -292,9 +317,9 @@ struct PreviewExportView: View {
 struct ShareSheet: UIViewControllerRepresentable {
     let items: [Any]
 
-    func makeUIViewController(context: Context) -> UIActivityViewController {
+    func makeUIViewController(context _: Context) -> UIActivityViewController {
         UIActivityViewController(activityItems: items, applicationActivities: nil)
     }
 
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+    func updateUIViewController(_: UIActivityViewController, context _: Context) {}
 }

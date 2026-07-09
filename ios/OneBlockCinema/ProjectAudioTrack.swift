@@ -82,10 +82,10 @@ nonisolated enum ProjectAudioTrackPersistence {
             let stored = storedPath(for: track.fileURL, rootDirectory: rootDirectory)
             try db.execute(
                 sql: """
-                    INSERT INTO local_audio_tracks (
-                        id, session_id, kind, path, path_kind, duration, volume
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """,
+                INSERT INTO local_audio_tracks (
+                    id, session_id, kind, path, path_kind, duration, volume
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
                 arguments: [
                     track.id.uuidString,
                     sessionId.uuidString,
@@ -93,7 +93,7 @@ nonisolated enum ProjectAudioTrackPersistence {
                     stored.path,
                     stored.kind,
                     track.duration,
-                    track.volume,
+                    track.volume
                 ]
             )
         }

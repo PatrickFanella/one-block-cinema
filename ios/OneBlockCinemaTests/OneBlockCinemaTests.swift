@@ -5,10 +5,10 @@
 //  Created by Rork on March 7, 2026.
 //
 
-import Foundation
 import CoreGraphics
-import Testing
+import Foundation
 @testable import OneBlockCinema
+import Testing
 
 struct OneBlockCinemaTests {
     private func makeClip(_ number: Int, duration: TimeInterval) -> FilmClip {
@@ -48,7 +48,7 @@ struct OneBlockCinemaTests {
             let prompts = PromptGenerator.generatePrompts(for: theme)
 
             #expect(prompts.count == 7)
-            #expect(prompts.map(\.index) == Array(0..<7))
+            #expect(prompts.map(\.index) == Array(0 ..< 7))
             #expect(prompts.allSatisfy { !$0.direction.isEmpty })
             #expect(prompts.allSatisfy { !$0.hint.isEmpty })
             #expect(prompts.allSatisfy { !$0.icon.isEmpty })
@@ -56,14 +56,16 @@ struct OneBlockCinemaTests {
         }
     }
 
-    @Test func bundledCatalogContainsTenValidatedTemplates() throws {
+    @Test func bundledCatalogContainsTenValidatedTemplates() {
         let templates = TemplateCatalog.launchTemplates
 
         #expect(templates.count == 10)
         #expect(Set(templates.map(\.id)).count == 10)
         #expect(templates.allSatisfy { $0.schemaVersion == 1 })
+        // Swift Testing's macro cannot expand this optional-chain key path correctly.
+        // swiftformat:disable:next preferKeyPath
         #expect(templates.allSatisfy { $0.durationTarget.fitsV1Maximum })
-        #expect(templates.allSatisfy { $0.shotPrompts.map(\.index) == Array(0..<$0.shotCount) })
+        #expect(templates.allSatisfy { $0.shotPrompts.map(\.index) == Array(0 ..< $0.shotCount) })
         #expect(templates.flatMap(\.shotPrompts).allSatisfy { !$0.id.isEmpty && $0.targetSeconds > 0 })
     }
 
@@ -73,7 +75,7 @@ struct OneBlockCinemaTests {
             "OBCAPIBaseURL": "http://api.example.com",
             "OBCSupabaseURL": "https://project.supabase.co",
             "OBCFeatureCommunity": true,
-            "OBCFeatureAICoach": true,
+            "OBCFeatureAICoach": true
         ])
 
         #expect(configuration.environment == .production)
@@ -87,7 +89,7 @@ struct OneBlockCinemaTests {
         let configuration = AppConfiguration(infoDictionary: [
             "OBCEnvironment": "development",
             "OBCAPIBaseURL": "http://127.0.0.1:3000",
-            "OBCSupabaseURL": "http://localhost:54321",
+            "OBCSupabaseURL": "http://localhost:54321"
         ])
 
         #expect(configuration.apiBaseURL?.host == "127.0.0.1")
@@ -422,12 +424,12 @@ struct OneBlockCinemaTests {
     @Test func migratesLegacyUserDefaultsOnlyOnce() async throws {
         let (storage, userDefaults, _) = makeStorage()
         let legacy = FilmSession(theme: .romance, title: "Legacy draft")
-        userDefaults.set(try JSONEncoder().encode([legacy]), forKey: "saved_film_sessions")
+        try userDefaults.set(JSONEncoder().encode([legacy]), forKey: "saved_film_sessions")
 
         let firstLoad = try await storage.loadSessions()
         #expect(firstLoad.map(\.id) == [legacy.id])
 
-        userDefaults.set(try JSONEncoder().encode([FilmSession(theme: .horror)]), forKey: "saved_film_sessions")
+        try userDefaults.set(JSONEncoder().encode([FilmSession(theme: .horror)]), forKey: "saved_film_sessions")
         let secondLoad = try await storage.loadSessions()
         #expect(secondLoad.map(\.id) == [legacy.id])
     }
@@ -505,7 +507,7 @@ struct OneBlockCinemaTests {
         #expect(!resolution.recoveredLocalCopy.syncEnabled)
     }
 
-    @Test func attachingClipCompletesMatchingPromptOnly() async throws {
+    @Test func attachingClipCompletesMatchingPromptOnly() {
         let firstPrompt = ShotPrompt(index: 0, direction: "Wide", hint: "Set the block", icon: "film")
         let secondPrompt = ShotPrompt(index: 1, direction: "Detail", hint: "Show texture", icon: "eye")
         let clip = FilmClip(promptId: secondPrompt.id, fileURL: URL(fileURLWithPath: "/tmp/detail.mov"), duration: 4)
@@ -519,7 +521,7 @@ struct OneBlockCinemaTests {
         #expect(session.clip(forPromptId: secondPrompt.id) == clip)
     }
 
-    @Test func attachingClipForSamePromptReplacesPreviousClip() async throws {
+    @Test func attachingClipForSamePromptReplacesPreviousClip() {
         let prompt = ShotPrompt(index: 0, direction: "Opening", hint: "Start here", icon: "film")
         let firstClip = FilmClip(promptId: prompt.id, fileURL: URL(fileURLWithPath: "/tmp/first.mov"), duration: 2)
         let replacementClip = FilmClip(promptId: prompt.id, fileURL: URL(fileURLWithPath: "/tmp/replacement.mov"), duration: 5)
@@ -535,7 +537,7 @@ struct OneBlockCinemaTests {
         #expect(session.prompts[0].isCompleted)
     }
 
-    @Test func attachingClipForUnknownPromptFailsWithoutMutation() async throws {
+    @Test func attachingClipForUnknownPromptFailsWithoutMutation() {
         let prompt = ShotPrompt(index: 0, direction: "Opening", hint: "Start here", icon: "film")
         let clip = FilmClip(promptId: UUID(), fileURL: URL(fileURLWithPath: "/tmp/orphan.mov"))
 
@@ -546,7 +548,7 @@ struct OneBlockCinemaTests {
         #expect(session.prompts[0].isCompleted == false)
     }
 
-    @Test func catalogTemplateCreatesSessionPrompts() throws {
+    @Test func catalogTemplateCreatesSessionPrompts() {
         let template = TemplateCatalog.template(for: .noir)
         let prompts = PromptGenerator.generatePrompts(for: template)
 
@@ -557,7 +559,7 @@ struct OneBlockCinemaTests {
         #expect(prompts.first?.isCompleted == false)
     }
 
-    @Test func planKeepsClipsUnderMaxDuration() async throws {
+    @Test func planKeepsClipsUnderMaxDuration() {
         let clips = [makeClip(1, duration: 30), makeClip(2, duration: 45), makeClip(3, duration: 15)]
 
         let plan = VideoExportLimits.plan(for: clips, maxDuration: 120)
@@ -568,7 +570,7 @@ struct OneBlockCinemaTests {
         #expect(plan.wasTrimmedToMaximumDuration == false)
     }
 
-    @Test func planTrimsClipThatCrossesMaxDuration() async throws {
+    @Test func planTrimsClipThatCrossesMaxDuration() {
         let clips = [makeClip(1, duration: 90), makeClip(2, duration: 50)]
 
         let plan = VideoExportLimits.plan(for: clips, maxDuration: 100)
@@ -727,7 +729,7 @@ struct OneBlockCinemaTests {
         #expect(transformed.height >= renderSize.height)
     }
 
-    @Test func clipsInPromptOrderUsesShotPromptOrder() async throws {
+    @Test func clipsInPromptOrderUsesShotPromptOrder() {
         let firstPrompt = ShotPrompt(index: 0, direction: "First", hint: "", icon: "1.circle")
         let secondPrompt = ShotPrompt(index: 1, direction: "Second", hint: "", icon: "2.circle")
         let thirdPrompt = ShotPrompt(index: 2, direction: "Third", hint: "", icon: "3.circle")

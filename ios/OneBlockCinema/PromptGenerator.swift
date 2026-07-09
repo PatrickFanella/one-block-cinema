@@ -1,6 +1,6 @@
 import Foundation
 
-struct PromptGenerator {
+enum PromptGenerator {
     static func generatePrompts(for theme: FilmTheme) -> [ShotPrompt] {
         generatePrompts(for: TemplateCatalog.template(for: theme))
     }

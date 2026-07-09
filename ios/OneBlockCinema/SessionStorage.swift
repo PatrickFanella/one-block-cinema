@@ -196,7 +196,7 @@ actor SessionStorage {
     }
 
     func deleteClipFile(at url: URL) throws {
-        guard DraftStorageMaintenance.isDescendant(url, of: try draftsDirectory) else {
+        guard try DraftStorageMaintenance.isDescendant(url, of: draftsDirectory) else {
             throw SessionStorageError.unsafeMediaPath
         }
         guard fileManager.fileExists(atPath: url.path) else { return }
@@ -248,17 +248,17 @@ actor SessionStorage {
         return try queue.write { db in
             try db.execute(
                 sql: """
-                    INSERT OR IGNORE INTO sync_outbox (
-                        id, aggregate_id, operation, payload, created_at,
-                        attempt_count, next_attempt_at, state, last_error
-                    ) VALUES (?, ?, ?, ?, ?, 0, NULL, 'pending', NULL)
-                    """,
+                INSERT OR IGNORE INTO sync_outbox (
+                    id, aggregate_id, operation, payload, created_at,
+                    attempt_count, next_attempt_at, state, last_error
+                ) VALUES (?, ?, ?, ?, ?, 0, NULL, 'pending', NULL)
+                """,
                 arguments: [
                     idempotencyKey.uuidString,
                     aggregateId.uuidString,
                     kind.rawValue,
                     payload,
-                    createdAt.timeIntervalSince1970,
+                    createdAt.timeIntervalSince1970
                 ]
             )
             guard let operation = try Self.fetchSyncOperation(id: idempotencyKey, from: db) else {
@@ -275,12 +275,12 @@ actor SessionStorage {
             let rows = try Row.fetchAll(
                 db,
                 sql: """
-                    SELECT * FROM sync_outbox
-                    WHERE state IN ('pending', 'failed')
-                      AND (next_attempt_at IS NULL OR next_attempt_at <= ?)
-                    ORDER BY created_at ASC
-                    LIMIT ?
-                    """,
+                SELECT * FROM sync_outbox
+                WHERE state IN ('pending', 'failed')
+                  AND (next_attempt_at IS NULL OR next_attempt_at <= ?)
+                ORDER BY created_at ASC
+                LIMIT ?
+                """,
                 arguments: [now.timeIntervalSince1970, limit]
             )
             return rows.compactMap(Self.decodeSyncOperation)
@@ -302,13 +302,13 @@ actor SessionStorage {
         try queue.write { db in
             try db.execute(
                 sql: """
-                    UPDATE sync_outbox
-                    SET state = 'failed',
-                        attempt_count = attempt_count + 1,
-                        next_attempt_at = ?,
-                        last_error = ?
-                    WHERE id = ?
-                    """,
+                UPDATE sync_outbox
+                SET state = 'failed',
+                    attempt_count = attempt_count + 1,
+                    next_attempt_at = ?,
+                    last_error = ?
+                WHERE id = ?
+                """,
                 arguments: [retryAt.timeIntervalSince1970, error, id.uuidString]
             )
         }
@@ -319,10 +319,10 @@ actor SessionStorage {
         try queue.write { db in
             try db.execute(
                 sql: """
-                    UPDATE sync_outbox
-                    SET state = 'completed', next_attempt_at = NULL, last_error = NULL
-                    WHERE id = ?
-                    """,
+                UPDATE sync_outbox
+                SET state = 'completed', next_attempt_at = NULL, last_error = NULL
+                WHERE id = ?
+                """,
                 arguments: [id.uuidString]
             )
         }
@@ -342,7 +342,7 @@ actor SessionStorage {
         let legacyFile = try legacySessionsFile
         if fileManager.fileExists(atPath: legacyFile.path) {
             do {
-                candidates.append(("sessions.json", try Data(contentsOf: legacyFile)))
+                try candidates.append(("sessions.json", Data(contentsOf: legacyFile)))
             } catch {
                 try queue.write { db in
                     try Self.recordRecoveryIssue(
@@ -389,58 +389,58 @@ actor SessionStorage {
         var migrator = DatabaseMigrator()
         migrator.registerMigration("create-local-project-store-v1") { db in
             try db.execute(sql: """
-                CREATE TABLE sessions (
-                    id TEXT PRIMARY KEY NOT NULL,
-                    created_at DOUBLE NOT NULL,
-                    updated_at DOUBLE NOT NULL,
-                    completed_at DOUBLE,
-                    payload BLOB NOT NULL,
-                    recovery_state TEXT NOT NULL DEFAULT 'healthy',
-                    recovery_reason TEXT
-                );
+            CREATE TABLE sessions (
+                id TEXT PRIMARY KEY NOT NULL,
+                created_at DOUBLE NOT NULL,
+                updated_at DOUBLE NOT NULL,
+                completed_at DOUBLE,
+                payload BLOB NOT NULL,
+                recovery_state TEXT NOT NULL DEFAULT 'healthy',
+                recovery_reason TEXT
+            );
 
-                CREATE TABLE clips (
-                    id TEXT PRIMARY KEY NOT NULL,
-                    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-                    prompt_id TEXT NOT NULL,
-                    path TEXT NOT NULL,
-                    path_kind TEXT NOT NULL,
-                    thumbnail_path TEXT,
-                    thumbnail_path_kind TEXT,
-                    duration DOUBLE NOT NULL,
-                    created_at DOUBLE NOT NULL,
-                    show_title INTEGER NOT NULL,
-                    title_text TEXT NOT NULL,
-                    media_status TEXT NOT NULL DEFAULT 'available'
-                );
+            CREATE TABLE clips (
+                id TEXT PRIMARY KEY NOT NULL,
+                session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+                prompt_id TEXT NOT NULL,
+                path TEXT NOT NULL,
+                path_kind TEXT NOT NULL,
+                thumbnail_path TEXT,
+                thumbnail_path_kind TEXT,
+                duration DOUBLE NOT NULL,
+                created_at DOUBLE NOT NULL,
+                show_title INTEGER NOT NULL,
+                title_text TEXT NOT NULL,
+                media_status TEXT NOT NULL DEFAULT 'available'
+            );
 
-                CREATE INDEX clips_session_id ON clips(session_id);
+            CREATE INDEX clips_session_id ON clips(session_id);
 
-                CREATE TABLE sync_outbox (
-                    id TEXT PRIMARY KEY NOT NULL,
-                    aggregate_id TEXT NOT NULL,
-                    operation TEXT NOT NULL,
-                    payload BLOB NOT NULL,
-                    created_at DOUBLE NOT NULL,
-                    attempt_count INTEGER NOT NULL DEFAULT 0,
-                    next_attempt_at DOUBLE,
-                    state TEXT NOT NULL DEFAULT 'pending'
-                );
+            CREATE TABLE sync_outbox (
+                id TEXT PRIMARY KEY NOT NULL,
+                aggregate_id TEXT NOT NULL,
+                operation TEXT NOT NULL,
+                payload BLOB NOT NULL,
+                created_at DOUBLE NOT NULL,
+                attempt_count INTEGER NOT NULL DEFAULT 0,
+                next_attempt_at DOUBLE,
+                state TEXT NOT NULL DEFAULT 'pending'
+            );
 
-                CREATE INDEX sync_outbox_state_next_attempt ON sync_outbox(state, next_attempt_at);
+            CREATE INDEX sync_outbox_state_next_attempt ON sync_outbox(state, next_attempt_at);
 
-                CREATE TABLE app_metadata (
-                    key TEXT PRIMARY KEY NOT NULL,
-                    value TEXT NOT NULL
-                );
+            CREATE TABLE app_metadata (
+                key TEXT PRIMARY KEY NOT NULL,
+                value TEXT NOT NULL
+            );
 
-                CREATE TABLE recovery_issues (
-                    id TEXT PRIMARY KEY NOT NULL,
-                    source TEXT NOT NULL,
-                    message TEXT NOT NULL,
-                    created_at DOUBLE NOT NULL
-                );
-                """)
+            CREATE TABLE recovery_issues (
+                id TEXT PRIMARY KEY NOT NULL,
+                source TEXT NOT NULL,
+                message TEXT NOT NULL,
+                created_at DOUBLE NOT NULL
+            );
+            """)
         }
         migrator.registerMigration("add-outbox-error-v2") { db in
             try db.execute(sql: "ALTER TABLE sync_outbox ADD COLUMN last_error TEXT")
@@ -457,40 +457,40 @@ actor SessionStorage {
         }
         migrator.registerMigration("add-render-recovery-v6") { db in
             try db.execute(sql: """
-                CREATE TABLE local_render_jobs (
-                    id TEXT PRIMARY KEY NOT NULL,
-                    session_id TEXT NOT NULL UNIQUE REFERENCES sessions(id) ON DELETE CASCADE,
-                    status TEXT NOT NULL CHECK (
-                        status IN ('rendering', 'completed', 'cancelled', 'failed', 'interrupted', 'dismissed')
-                    ),
-                    started_at DOUBLE NOT NULL,
-                    updated_at DOUBLE NOT NULL,
-                    failure_reason TEXT
-                );
+            CREATE TABLE local_render_jobs (
+                id TEXT PRIMARY KEY NOT NULL,
+                session_id TEXT NOT NULL UNIQUE REFERENCES sessions(id) ON DELETE CASCADE,
+                status TEXT NOT NULL CHECK (
+                    status IN ('rendering', 'completed', 'cancelled', 'failed', 'interrupted', 'dismissed')
+                ),
+                started_at DOUBLE NOT NULL,
+                updated_at DOUBLE NOT NULL,
+                failure_reason TEXT
+            );
 
-                CREATE INDEX local_render_jobs_status_updated
-                ON local_render_jobs(status, updated_at);
-                """)
+            CREATE INDEX local_render_jobs_status_updated
+            ON local_render_jobs(status, updated_at);
+            """)
         }
         migrator.registerMigration("add-project-audio-tracks-v7") { db in
             try db.execute(sql: """
-                CREATE TABLE local_audio_tracks (
-                    id TEXT PRIMARY KEY NOT NULL,
-                    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-                    kind TEXT NOT NULL CHECK (kind IN ('voiceover', 'ambient')),
-                    path TEXT NOT NULL,
-                    path_kind TEXT NOT NULL CHECK (path_kind IN ('relative', 'absolute')),
-                    duration DOUBLE NOT NULL CHECK (duration > 0),
-                    volume DOUBLE NOT NULL CHECK (volume >= 0 AND volume <= 1),
-                    UNIQUE (session_id, kind)
-                );
-                """)
+            CREATE TABLE local_audio_tracks (
+                id TEXT PRIMARY KEY NOT NULL,
+                session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+                kind TEXT NOT NULL CHECK (kind IN ('voiceover', 'ambient')),
+                path TEXT NOT NULL,
+                path_kind TEXT NOT NULL CHECK (path_kind IN ('relative', 'absolute')),
+                duration DOUBLE NOT NULL CHECK (duration > 0),
+                volume DOUBLE NOT NULL CHECK (volume >= 0 AND volume <= 1),
+                UNIQUE (session_id, kind)
+            );
+            """)
         }
         return migrator
     }()
 
     private static func persist(_ sessions: [FilmSession], rootDirectory: URL, in db: Database) throws {
-        let incomingIds = Set(sessions.map { $0.id.uuidString })
+        let incomingIds = Set(sessions.map(\.id.uuidString))
         let storedIds = try String.fetchAll(db, sql: "SELECT id FROM sessions")
         for storedId in storedIds where !incomingIds.contains(storedId) {
             try db.execute(sql: "DELETE FROM sessions WHERE id = ?", arguments: [storedId])
@@ -502,22 +502,22 @@ actor SessionStorage {
             let payload = try encoder.encode(metadata)
             try db.execute(
                 sql: """
-                    INSERT INTO sessions (
-                        id, created_at, updated_at, completed_at, payload, recovery_state, recovery_reason
-                    ) VALUES (?, ?, ?, ?, ?, 'healthy', NULL)
-                    ON CONFLICT(id) DO UPDATE SET
-                        updated_at = excluded.updated_at,
-                        completed_at = excluded.completed_at,
-                        payload = excluded.payload,
-                        recovery_state = 'healthy',
-                        recovery_reason = NULL
-                    """,
+                INSERT INTO sessions (
+                    id, created_at, updated_at, completed_at, payload, recovery_state, recovery_reason
+                ) VALUES (?, ?, ?, ?, ?, 'healthy', NULL)
+                ON CONFLICT(id) DO UPDATE SET
+                    updated_at = excluded.updated_at,
+                    completed_at = excluded.completed_at,
+                    payload = excluded.payload,
+                    recovery_state = 'healthy',
+                    recovery_reason = NULL
+                """,
                 arguments: [
                     session.id.uuidString,
                     session.createdAt.timeIntervalSince1970,
                     Date().timeIntervalSince1970,
                     session.completedAt?.timeIntervalSince1970,
-                    payload,
+                    payload
                 ]
             )
 
@@ -527,12 +527,12 @@ actor SessionStorage {
                 let thumbnailPath = clip.thumbnailURL.map { storedPath(for: $0, rootDirectory: rootDirectory) }
                 try db.execute(
                     sql: """
-                        INSERT INTO clips (
-                            id, session_id, prompt_id, path, path_kind,
-                            thumbnail_path, thumbnail_path_kind, duration, created_at,
-                            show_title, title_text, media_status, trim_start, trim_end, volume, transition_style
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
+                    INSERT INTO clips (
+                        id, session_id, prompt_id, path, path_kind,
+                        thumbnail_path, thumbnail_path_kind, duration, created_at,
+                        show_title, title_text, media_status, trim_start, trim_end, volume, transition_style
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
                     arguments: [
                         clip.id.uuidString,
                         session.id.uuidString,
@@ -549,7 +549,7 @@ actor SessionStorage {
                         clip.trimStart,
                         clip.trimEnd,
                         clip.volume,
-                        clip.transitionStyle.rawValue,
+                        clip.transitionStyle.rawValue
                     ]
                 )
             }

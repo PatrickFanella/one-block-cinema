@@ -5,7 +5,9 @@ nonisolated enum EditStyle: String, CaseIterable, Identifiable, Codable, Sendabl
     case silentFilm = "silent_film"
     case voiceoverDiary = "voiceover_diary"
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     var displayName: String {
         switch self {

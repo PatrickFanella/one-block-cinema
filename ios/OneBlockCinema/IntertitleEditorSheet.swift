@@ -31,7 +31,7 @@ struct IntertitleEditorSheet: View {
             Form {
                 Section("Card text") {
                     TextField("Intertitle", text: $text, axis: .vertical)
-                        .lineLimit(2...5)
+                        .lineLimit(2 ... 5)
                         .focused($textFocused)
                         .submitLabel(.done)
                     Text("\(text.count)/120 characters")
@@ -41,12 +41,12 @@ struct IntertitleEditorSheet: View {
 
                 Section("Timing") {
                     Picker("Position", selection: $position) {
-                        ForEach(0...clipCount, id: \.self) { value in
+                        ForEach(0 ... clipCount, id: \.self) { value in
                             Text(positionLabel(value)).tag(value)
                         }
                     }
                     LabeledContent("Duration", value: String(format: "%.1f seconds", duration))
-                    Slider(value: $duration, in: 0.5...5, step: 0.5)
+                    Slider(value: $duration, in: 0.5 ... 5, step: 0.5)
                         .accessibilityLabel("Intertitle duration")
                 }
 
@@ -88,8 +88,12 @@ struct IntertitleEditorSheet: View {
     }
 
     private func positionLabel(_ value: Int) -> String {
-        if value == 0 { return "Before first clip" }
-        if value == clipCount { return "After last clip" }
+        if value == 0 {
+            return "Before first clip"
+        }
+        if value == clipCount {
+            return "After last clip"
+        }
         return "Between clips \(value) and \(value + 1)"
     }
 }

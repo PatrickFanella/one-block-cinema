@@ -13,7 +13,7 @@ nonisolated enum CameraCaptureState: Sendable, Equatable {
 }
 
 @Observable
-nonisolated final class CameraCaptureController: NSObject, AVCaptureFileOutputRecordingDelegate, @unchecked Sendable {
+final nonisolated class CameraCaptureController: NSObject, AVCaptureFileOutputRecordingDelegate, @unchecked Sendable {
     let session = AVCaptureSession()
     private let movieOutput = AVCaptureMovieFileOutput()
     private let sessionQueue = DispatchQueue(label: "app.oneblockcinema.camera.session", qos: .userInitiated)
@@ -185,14 +185,16 @@ nonisolated final class CameraCaptureController: NSObject, AVCaptureFileOutputRe
             stopRecording()
         }
         sessionQueue.async { [session] in
-            if session.isRunning { session.stopRunning() }
+            if session.isRunning {
+                session.stopRunning()
+            }
         }
     }
 
     nonisolated func fileOutput(
-        _ output: AVCaptureFileOutput,
+        _: AVCaptureFileOutput,
         didFinishRecordingTo outputFileURL: URL,
-        from connections: [AVCaptureConnection],
+        from _: [AVCaptureConnection],
         error: Error?
     ) {
         Task { @MainActor [weak self] in
@@ -261,8 +263,12 @@ nonisolated final class CameraCaptureController: NSObject, AVCaptureFileOutputRe
                     defer { session.commitConfiguration() }
                     session.sessionPreset = .hd1920x1080
 
-                    if let videoInput { session.removeInput(videoInput) }
-                    if let audioInput { session.removeInput(audioInput) }
+                    if let videoInput {
+                        session.removeInput(videoInput)
+                    }
+                    if let audioInput {
+                        session.removeInput(audioInput)
+                    }
 
                     let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: requestedPosition)
                         ?? AVCaptureDevice.default(for: .video)
@@ -274,7 +280,8 @@ nonisolated final class CameraCaptureController: NSObject, AVCaptureFileOutputRe
                     videoInput = newVideoInput
 
                     if includeAudio,
-                       let microphone = AVCaptureDevice.default(for: .audio) {
+                       let microphone = AVCaptureDevice.default(for: .audio)
+                    {
                         let newAudioInput = try AVCaptureDeviceInput(device: microphone)
                         if session.canAddInput(newAudioInput) {
                             session.addInput(newAudioInput)
@@ -318,14 +325,18 @@ nonisolated final class CameraCaptureController: NSObject, AVCaptureFileOutputRe
     private func startSession() async {
         await withCheckedContinuation { continuation in
             sessionQueue.async { [session] in
-                if !session.isRunning { session.startRunning() }
+                if !session.isRunning {
+                    session.startRunning()
+                }
                 continuation.resume()
             }
         }
     }
 
     private var isFailed: Bool {
-        if case .failed = state { return true }
+        if case .failed = state {
+            return true
+        }
         return false
     }
 }
@@ -390,6 +401,14 @@ struct CameraPreview: UIViewRepresentable {
 }
 
 final class CameraPreviewView: UIView {
-    override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
-    var previewLayer: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
+    override static var layerClass: AnyClass {
+        AVCaptureVideoPreviewLayer.self
+    }
+
+    var previewLayer: AVCaptureVideoPreviewLayer {
+        guard let previewLayer = layer as? AVCaptureVideoPreviewLayer else {
+            preconditionFailure("CameraPreviewView must use AVCaptureVideoPreviewLayer")
+        }
+        return previewLayer
+    }
 }

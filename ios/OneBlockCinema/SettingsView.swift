@@ -82,7 +82,11 @@ struct SettingsView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This permanently deletes every local draft, app-owned clip and audio file, edit decision, recovery record, and pending sync operation. Exported films saved elsewhere are not affected.")
+            Text(
+                "This permanently deletes every local draft, app-owned clip and audio file, "
+                    + "edit decision, recovery record, and pending sync operation. "
+                    + "Exported films saved elsewhere are not affected."
+            )
         }
         .alert("Data Export Error", isPresented: $viewModel.showError) {
             Button("OK") {}

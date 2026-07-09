@@ -93,7 +93,7 @@ nonisolated protocol CommunityService: Sendable {
     func unblock(userId: UUID, idempotencyKey: UUID) async throws
 }
 
-// The cloud implementation remains intentionally absent until AI critique is configured.
+/// The cloud implementation remains intentionally absent until AI critique is configured.
 nonisolated protocol CritiqueService: Sendable {
     func requestCritique(projectId: UUID, consentedAt: Date) async throws -> CritiqueResult
 }

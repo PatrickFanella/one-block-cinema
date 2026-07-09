@@ -1,6 +1,6 @@
 import Foundation
-import Testing
 @testable import OneBlockCinema
+import Testing
 
 struct LocalDataExportTests {
     @Test func exportsEditableProjectMetadataWithoutPrivatePathsOrMediaBytes() async throws {

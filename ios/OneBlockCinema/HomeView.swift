@@ -142,7 +142,9 @@ struct TemplateCard: View {
     let action: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var theme: FilmTheme { template.theme }
+    private var theme: FilmTheme {
+        template.theme
+    }
 
     var body: some View {
         Button(action: action) {

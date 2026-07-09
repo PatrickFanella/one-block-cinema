@@ -240,7 +240,7 @@ class FilmSessionViewModel {
 
     func goToPrompt(at index: Int) {
         guard let session = activeSession,
-              index >= 0 && index < session.prompts.count else { return }
+              index >= 0, index < session.prompts.count else { return }
         currentPromptIndex = index
     }
 
@@ -669,7 +669,7 @@ class FilmSessionViewModel {
         guard !tracks.isEmpty else {
             throw ProjectAudioError.noAudioTrack
         }
-        let duration = CMTimeGetSeconds(try await asset.load(.duration))
+        let duration = try await CMTimeGetSeconds(asset.load(.duration))
         guard duration.isFinite, duration > 0 else { throw ProjectAudioError.invalidDuration }
         return min(duration, VideoExportLimits.maximumDuration)
     }
@@ -708,13 +708,13 @@ nonisolated enum ClipImportError: LocalizedError, Sendable {
     var errorDescription: String? {
         switch self {
         case .noActiveSession:
-            return "Start or resume a film before importing clips."
+            "Start or resume a film before importing clips."
         case .promptNotFound:
-            return "This clip could not be matched to the selected shot prompt."
+            "This clip could not be matched to the selected shot prompt."
         case .noVideoSelected:
-            return "No video was selected. Choose a clip from your library to attach it to this shot."
+            "No video was selected. Choose a clip from your library to attach it to this shot."
         case .invalidDuration:
-            return "Could not read a valid video duration. Try a different clip."
+            "Could not read a valid video duration. Try a different clip."
         }
     }
 }

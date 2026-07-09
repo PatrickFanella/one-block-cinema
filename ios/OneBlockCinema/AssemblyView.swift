@@ -12,8 +12,13 @@ struct AssemblyView: View {
     @State private var selectedIntertitle: IntertitleCard?
     @State private var showNewIntertitle = false
 
-    private var session: FilmSession? { viewModel.activeSession }
-    private var theme: FilmTheme { session?.theme ?? .documentary }
+    private var session: FilmSession? {
+        viewModel.activeSession
+    }
+
+    private var theme: FilmTheme {
+        session?.theme ?? .documentary
+    }
 
     var body: some View {
         ScrollView {
@@ -319,8 +324,12 @@ struct AssemblyView: View {
 
     private func intertitlePositionLabel(_ position: Int) -> String {
         let clipCount = session?.clipsInEditOrder.count ?? 0
-        if position <= 0 { return "Before first clip" }
-        if position >= clipCount { return "After last clip" }
+        if position <= 0 {
+            return "Before first clip"
+        }
+        if position >= clipCount {
+            return "After last clip"
+        }
         return "Between clips \(position) and \(position + 1)"
     }
 
@@ -386,7 +395,7 @@ struct AssemblyView: View {
                         get: { viewModel.activeSession?.audioTrack(kind: kind)?.volume ?? track.volume },
                         set: { viewModel.updateAudioTrackVolume(kind: kind, volume: $0) }
                     ),
-                    in: 0...1
+                    in: 0 ... 1
                 )
                 .tint(CinemaColors.amber)
                 .accessibilityLabel("\(title) volume")
@@ -433,7 +442,11 @@ struct AssemblyView: View {
             guard let url = try result.get().first else { return }
             Task {
                 let accessed = url.startAccessingSecurityScopedResource()
-                defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+                defer {
+                    if accessed {
+                        url.stopAccessingSecurityScopedResource()
+                    }
+                }
                 _ = await viewModel.attachAudioTrack(from: url, kind: kind)
             }
         } catch {
@@ -568,7 +581,7 @@ struct ClipDetailSheet: View {
                             LabeledContent("Starts at", value: formattedTime(trimStart))
                             Slider(
                                 value: $trimStart,
-                                in: 0...max(0, trimEnd - 0.1)
+                                in: 0 ... max(0, trimEnd - 0.1)
                             )
                             .accessibilityLabel("Clip start time")
                         }
@@ -577,7 +590,7 @@ struct ClipDetailSheet: View {
                             LabeledContent("Ends at", value: formattedTime(trimEnd))
                             Slider(
                                 value: $trimEnd,
-                                in: min(clip.duration, trimStart + 0.1)...clip.duration
+                                in: min(clip.duration, trimStart + 0.1) ... clip.duration
                             )
                             .accessibilityLabel("Clip end time")
                         }
@@ -609,7 +622,7 @@ struct ClipDetailSheet: View {
 
                 Section("Clip audio") {
                     LabeledContent("Volume", value: "\(Int(volume * 100))%")
-                    Slider(value: $volume, in: 0...1)
+                    Slider(value: $volume, in: 0 ... 1)
                         .accessibilityLabel("Clip volume")
                     Text("This changes the mix without modifying the source file.")
                         .font(.caption)

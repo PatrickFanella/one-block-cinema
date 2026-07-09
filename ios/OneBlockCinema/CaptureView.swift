@@ -15,8 +15,13 @@ struct CaptureView: View {
     @State private var isProcessing = false
     @State private var reviewPlayer: AVPlayer?
 
-    private var theme: FilmTheme { viewModel.activeSession?.theme ?? .documentary }
-    private var aspectRatio: TemplateAspectRatio { viewModel.activeSession?.aspectRatio ?? .horizontal }
+    private var theme: FilmTheme {
+        viewModel.activeSession?.theme ?? .documentary
+    }
+
+    private var aspectRatio: TemplateAspectRatio {
+        viewModel.activeSession?.aspectRatio ?? .horizontal
+    }
 
     var body: some View {
         ZStack {
@@ -169,7 +174,7 @@ struct CaptureView: View {
                     title: "Camera unavailable",
                     message: "Recording needs a compatible iPhone camera. Library import remains available."
                 )
-            case .failed(let message):
+            case let .failed(message):
                 cameraMessage(icon: "exclamationmark.triangle.fill", title: "Camera issue", message: message, showSettings: true)
             }
         }
@@ -267,7 +272,7 @@ struct CaptureView: View {
                         get: { camera.zoomFactor },
                         set: { camera.setZoomFactor($0) }
                     ),
-                    in: 1...camera.maximumZoomFactor
+                    in: 1 ... camera.maximumZoomFactor
                 )
                 .tint(CinemaColors.amber)
                 .accessibilityLabel("Camera zoom")

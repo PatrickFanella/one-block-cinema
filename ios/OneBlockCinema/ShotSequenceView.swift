@@ -7,8 +7,13 @@ struct ShotSequenceView: View {
     @State private var showCapture: Bool = false
     @State private var cardBounce: Int = 0
 
-    private var session: FilmSession? { viewModel.activeSession }
-    private var theme: FilmTheme { session?.theme ?? .documentary }
+    private var session: FilmSession? {
+        viewModel.activeSession
+    }
+
+    private var theme: FilmTheme {
+        session?.theme ?? .documentary
+    }
 
     var body: some View {
         ZStack {
@@ -100,11 +105,11 @@ struct ShotSequenceView: View {
 
     private func dotColor(for prompt: ShotPrompt, at index: Int) -> Color {
         if prompt.isCompleted {
-            return CinemaColors.amber
+            CinemaColors.amber
         } else if index == viewModel.currentPromptIndex {
-            return theme.accentColor
+            theme.accentColor
         } else {
-            return CinemaColors.surfaceLight
+            CinemaColors.surfaceLight
         }
     }
 
@@ -182,12 +187,12 @@ struct ShotSequenceView: View {
                 }
                 .onEnded { value in
                     let threshold: CGFloat = 60
-                    if value.translation.width < -threshold && viewModel.hasNextPrompt {
+                    if value.translation.width < -threshold, viewModel.hasNextPrompt {
                         performNavigation {
                             viewModel.nextPrompt()
                             cardBounce += 1
                         }
-                    } else if value.translation.width > threshold && viewModel.hasPreviousPrompt {
+                    } else if value.translation.width > threshold, viewModel.hasPreviousPrompt {
                         performNavigation {
                             viewModel.previousPrompt()
                             cardBounce += 1
@@ -287,8 +292,8 @@ struct ShotSequenceView: View {
         let name = needsRepair
             ? "wrench.and.screwdriver.fill"
             : viewModel.currentPrompt?.isCompleted == true
-                ? "arrow.triangle.2.circlepath"
-                : "camera.fill"
+            ? "arrow.triangle.2.circlepath"
+            : "camera.fill"
         let icon = Image(systemName: name)
         if reduceMotion {
             icon

@@ -1,6 +1,6 @@
 import Foundation
-import Testing
 @testable import OneBlockCinema
+import Testing
 
 struct IntertitleTests {
     private func makeClip(_ number: Int, duration: TimeInterval) -> FilmClip {
@@ -51,7 +51,7 @@ struct IntertitleTests {
         #expect(plan.segments.map(\.timelineStart) == [0, 6])
         #expect(plan.segments.map(\.transitionDuration) == [0, 0])
         #expect(plan.intertitleCues == [
-            RenderIntertitleCue(id: card.id, text: "Meanwhile", timelineStart: 4, duration: 2),
+            RenderIntertitleCue(id: card.id, text: "Meanwhile", timelineStart: 4, duration: 2)
         ])
         #expect(plan.totalDuration == 10)
     }

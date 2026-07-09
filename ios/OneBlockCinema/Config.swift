@@ -43,7 +43,9 @@ nonisolated struct AppConfiguration: Sendable, Equatable {
     }
 
     private static func bool(_ value: Any?) -> Bool {
-        if let value = value as? Bool { return value }
+        if let value = value as? Bool {
+            return value
+        }
         guard let value = string(value)?.lowercased() else { return false }
         return ["1", "true", "yes"].contains(value)
     }
@@ -55,7 +57,9 @@ nonisolated struct AppConfiguration: Sendable, Equatable {
         if environment == .production {
             return scheme == "https" ? url : nil
         }
-        if scheme == "https" { return url }
+        if scheme == "https" {
+            return url
+        }
         if scheme == "http", ["localhost", "127.0.0.1"].contains(url.host?.lowercased() ?? "") {
             return url
         }
@@ -64,5 +68,7 @@ nonisolated struct AppConfiguration: Sendable, Equatable {
 }
 
 enum Config {
-    static var app: AppConfiguration { .current }
+    static var app: AppConfiguration {
+        .current
+    }
 }

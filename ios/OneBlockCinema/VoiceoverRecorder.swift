@@ -36,9 +36,9 @@ final class VoiceoverRecorder {
                 .appendingPathComponent("OneBlockCinemaVoiceover_\(UUID().uuidString).m4a")
             let settings: [String: Any] = [
                 AVFormatIDKey: kAudioFormatMPEG4AAC,
-                AVSampleRateKey: 44_100,
+                AVSampleRateKey: 44100,
                 AVNumberOfChannelsKey: 1,
-                AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue,
+                AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
             ]
             let recorder = try AVAudioRecorder(url: url, settings: settings)
             recorder.prepareToRecord()
@@ -215,7 +215,7 @@ struct VoiceoverRecorderSheet: View {
         case .recording: "Recording"
         case .ready: "Voiceover ready"
         case .denied: "Microphone access needed"
-        case .failed(let message): message
+        case let .failed(message): message
         }
     }
 

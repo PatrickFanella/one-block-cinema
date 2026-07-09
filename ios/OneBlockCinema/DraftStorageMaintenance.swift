@@ -168,11 +168,11 @@ nonisolated enum DraftStorageMaintenance {
             }
         }
 
-        return StorageSnapshot(
+        return try StorageSnapshot(
             referencedPaths: referencedPaths,
             missingClipCount: missingClipCount,
             missingAudioTrackCount: missingAudioTrackCount,
-            recoveryIssueCount: try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM recovery_issues") ?? 0
+            recoveryIssueCount: Int.fetchOne(db, sql: "SELECT COUNT(*) FROM recovery_issues") ?? 0
         )
     }
 
@@ -188,7 +188,7 @@ nonisolated enum DraftStorageMaintenance {
             .isSymbolicLinkKey,
             .contentModificationDateKey,
             .fileAllocatedSizeKey,
-            .fileSizeKey,
+            .fileSizeKey
         ]
         guard let enumerator = fileManager.enumerator(
             at: draftsDirectory,

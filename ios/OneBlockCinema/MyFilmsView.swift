@@ -11,7 +11,8 @@ struct MyFilmsView: View {
             VStack(spacing: 16) {
                 if viewModel.storageHealth.needsAttention
                     || viewModel.storageCleanupMessage != nil
-                    || !viewModel.interruptedRenders.isEmpty {
+                    || !viewModel.interruptedRenders.isEmpty
+                {
                     storageRecoveryCard
                 }
 
@@ -324,7 +325,7 @@ struct MyFilmsView: View {
             session.title,
             session.templateTitle ?? session.theme.displayName,
             "\(session.clips.count) clips",
-            "\(Int(session.progress * 100)) percent complete",
+            "\(Int(session.progress * 100)) percent complete"
         ]
         if session.missingClipCount > 0 {
             parts.append("\(session.missingClipCount) missing clips")

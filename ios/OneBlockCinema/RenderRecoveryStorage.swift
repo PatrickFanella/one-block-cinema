@@ -13,21 +13,21 @@ extension SessionStorage {
         try queue.write { db in
             try db.execute(
                 sql: """
-                    INSERT INTO local_render_jobs (
-                        id, session_id, status, started_at, updated_at, failure_reason
-                    ) VALUES (?, ?, 'rendering', ?, ?, NULL)
-                    ON CONFLICT(session_id) DO UPDATE SET
-                        id = excluded.id,
-                        status = 'rendering',
-                        started_at = excluded.started_at,
-                        updated_at = excluded.updated_at,
-                        failure_reason = NULL
-                    """,
+                INSERT INTO local_render_jobs (
+                    id, session_id, status, started_at, updated_at, failure_reason
+                ) VALUES (?, ?, 'rendering', ?, ?, NULL)
+                ON CONFLICT(session_id) DO UPDATE SET
+                    id = excluded.id,
+                    status = 'rendering',
+                    started_at = excluded.started_at,
+                    updated_at = excluded.updated_at,
+                    failure_reason = NULL
+                """,
                 arguments: [
                     id.uuidString,
                     projectId.uuidString,
                     date.timeIntervalSince1970,
-                    date.timeIntervalSince1970,
+                    date.timeIntervalSince1970
                 ]
             )
         }
@@ -54,22 +54,22 @@ extension SessionStorage {
         return try queue.write { db in
             try db.execute(
                 sql: """
-                    UPDATE local_render_jobs
-                    SET status = 'interrupted',
-                        updated_at = ?,
-                        failure_reason = 'app_terminated'
-                    WHERE status = 'rendering'
-                    """,
+                UPDATE local_render_jobs
+                SET status = 'interrupted',
+                    updated_at = ?,
+                    failure_reason = 'app_terminated'
+                WHERE status = 'rendering'
+                """,
                 arguments: [date.timeIntervalSince1970]
             )
             let rows = try Row.fetchAll(
                 db,
                 sql: """
-                    SELECT id, session_id, started_at
-                    FROM local_render_jobs
-                    WHERE status = 'interrupted'
-                    ORDER BY updated_at DESC
-                    """
+                SELECT id, session_id, started_at
+                FROM local_render_jobs
+                WHERE status = 'interrupted'
+                ORDER BY updated_at DESC
+                """
             )
             return rows.compactMap { row in
                 guard let id = UUID(uuidString: row["id"]),
@@ -89,10 +89,10 @@ extension SessionStorage {
         try queue.write { db in
             try db.execute(
                 sql: """
-                    UPDATE local_render_jobs
-                    SET status = 'dismissed', updated_at = ?
-                    WHERE status = 'interrupted'
-                    """,
+                UPDATE local_render_jobs
+                SET status = 'dismissed', updated_at = ?
+                WHERE status = 'interrupted'
+                """,
                 arguments: [date.timeIntervalSince1970]
             )
         }
@@ -103,15 +103,15 @@ extension SessionStorage {
         try queue.write { db in
             try db.execute(
                 sql: """
-                    UPDATE local_render_jobs
-                    SET status = ?, updated_at = ?, failure_reason = ?
-                    WHERE id = ?
-                    """,
+                UPDATE local_render_jobs
+                SET status = ?, updated_at = ?, failure_reason = ?
+                WHERE id = ?
+                """,
                 arguments: [
                     status,
                     date.timeIntervalSince1970,
                     reason.map { String($0.prefix(200)) },
-                    id.uuidString,
+                    id.uuidString
                 ]
             )
         }

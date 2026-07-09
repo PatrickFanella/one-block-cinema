@@ -6,7 +6,9 @@ nonisolated enum TemplateAspectRatio: String, CaseIterable, Identifiable, Codabl
     case horizontal = "16:9"
     case portrait = "4:5"
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     var displayName: String {
         switch self {
@@ -38,12 +40,6 @@ nonisolated struct TemplateDurationTarget: Codable, Sendable, Hashable {
         case targetSeconds = "ideal"
         case minimumSeconds = "min"
         case maximumSeconds = "max"
-    }
-
-    init(targetSeconds: Int, minimumSeconds: Int, maximumSeconds: Int) {
-        self.targetSeconds = targetSeconds
-        self.minimumSeconds = minimumSeconds
-        self.maximumSeconds = maximumSeconds
     }
 
     var fitsV1Maximum: Bool {
@@ -142,10 +138,21 @@ nonisolated struct FilmTemplateV1: Identifiable, Codable, Sendable, Hashable {
     let guidance: TemplateGuidance
     let assembly: TemplateAssemblyGuidance
 
-    var displayName: String { title }
-    var durationTarget: TemplateDurationTarget { durationTargetSeconds }
-    var shotCount: Int { shotPrompts.count }
-    var prompts: [TemplateShotPrompt] { shotPrompts }
+    var displayName: String {
+        title
+    }
+
+    var durationTarget: TemplateDurationTarget {
+        durationTargetSeconds
+    }
+
+    var shotCount: Int {
+        shotPrompts.count
+    }
+
+    var prompts: [TemplateShotPrompt] {
+        shotPrompts
+    }
 
     var assemblyGuidance: TemplateAssemblyGuidance {
         TemplateAssemblyGuidance(
@@ -172,17 +179,17 @@ nonisolated enum TemplateCatalogError: LocalizedError, Sendable, Equatable {
         switch self {
         case .missingCatalog:
             "The bundled film template catalog is missing."
-        case .invalidTemplateCount(let count):
+        case let .invalidTemplateCount(count):
             "The launch catalog must contain exactly 10 templates; found \(count)."
-        case .duplicateTemplateId(let id):
+        case let .duplicateTemplateId(id):
             "The template id \(id) is duplicated."
-        case .invalidSchemaVersion(let id):
+        case let .invalidSchemaVersion(id):
             "The template \(id) does not use schema version 1."
-        case .invalidDuration(let id):
+        case let .invalidDuration(id):
             "The template \(id) has an invalid duration target."
-        case .invalidPromptOrder(let id):
+        case let .invalidPromptOrder(id):
             "The template \(id) has non-contiguous shot prompt indexes."
-        case .duplicatePromptId(let templateId, let promptId):
+        case let .duplicatePromptId(templateId, promptId):
             "The shot prompt id \(promptId) is duplicated in template \(templateId)."
         }
     }
@@ -236,7 +243,7 @@ nonisolated enum TemplateCatalog {
                 throw TemplateCatalogError.invalidDuration(template.id)
             }
 
-            let expectedIndexes = Array(0..<template.shotPrompts.count)
+            let expectedIndexes = Array(0 ..< template.shotPrompts.count)
             guard template.shotPrompts.map(\.index) == expectedIndexes else {
                 throw TemplateCatalogError.invalidPromptOrder(template.id)
             }
