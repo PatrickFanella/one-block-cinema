@@ -28,6 +28,7 @@ nonisolated struct RenderSegment: Sendable, Equatable {
     let sourceStart: TimeInterval
     let duration: TimeInterval
     let timelineStart: TimeInterval
+    let transitionDuration: TimeInterval
 }
 
 nonisolated struct RenderTitleCue: Sendable, Equatable {
@@ -99,33 +100,45 @@ nonisolated enum VideoExportLimits {
             )
         }
 
-        var remainingDuration = maxDuration
-        var timelineStart: TimeInterval = 0
+        let exportableClips = clips.filter { $0.isMediaAvailable && $0.trimmedDuration > 0 }
+        var timelineEnd: TimeInterval = 0
         var segments: [RenderSegment] = []
         var trimmed = false
 
-        for clip in clips where clip.isMediaAvailable {
-            guard clip.trimmedDuration > 0 else { continue }
+        for (index, clip) in exportableClips.enumerated() {
+            let fullDuration = clip.trimmedDuration
+            let previousDuration = segments.last?.duration ?? 0
+            let requestedTransition = clip.transitionStyle == .crossfade && !segments.isEmpty
+                ? pacingStyle.transitionDuration
+                : 0
+            var transitionDuration = min(requestedTransition, previousDuration / 2, fullDuration / 2)
+            var timelineStart = max(0, timelineEnd - transitionDuration)
+            var duration = min(fullDuration, max(0, maxDuration - timelineStart))
 
-            let duration = min(clip.trimmedDuration, remainingDuration)
-            if duration > 0 {
-                segments.append(
-                    RenderSegment(
-                        clip: clip,
-                        sourceStart: clip.effectiveTrimStart,
-                        duration: duration,
-                        timelineStart: timelineStart
-                    )
-                )
-                remainingDuration -= duration
-                timelineStart += duration
+            transitionDuration = min(transitionDuration, duration / 2)
+            timelineStart = max(0, timelineEnd - transitionDuration)
+            duration = min(fullDuration, max(0, maxDuration - timelineStart))
+            guard duration > 0 else {
+                trimmed = true
+                break
             }
 
-            if duration < clip.trimmedDuration {
+            segments.append(
+                RenderSegment(
+                    clip: clip,
+                    sourceStart: clip.effectiveTrimStart,
+                    duration: duration,
+                    timelineStart: timelineStart,
+                    transitionDuration: transitionDuration
+                )
+            )
+            timelineEnd = timelineStart + duration
+
+            if duration < fullDuration {
                 trimmed = true
             }
-            if remainingDuration <= 0 {
-                trimmed = trimmed || clips.last?.id != clip.id
+            if timelineEnd >= maxDuration {
+                trimmed = trimmed || index < exportableClips.count - 1
                 break
             }
         }
@@ -147,7 +160,7 @@ nonisolated enum VideoExportLimits {
             outputDimensions: .fullHD(for: aspectRatio),
             segments: segments,
             titleCues: titleCues,
-            totalDuration: timelineStart,
+            totalDuration: timelineEnd,
             wasTrimmedToMaximumDuration: trimmed,
             pacingStyle: pacingStyle,
             editStyle: editStyle
@@ -169,30 +182,41 @@ nonisolated struct PreparedRender: @unchecked Sendable {
 }
 
 nonisolated enum RenderCompositionBuilder {
+    private struct InsertedVideoSegment {
+        let segment: RenderSegment
+        let track: AVMutableCompositionTrack
+        let transform: CGAffineTransform
+    }
+
     static func build(plan: RenderPlan) async throws -> PreparedRender {
         guard !plan.segments.isEmpty else {
             throw ExportError.noExportableClips
         }
 
         let composition = AVMutableComposition()
-        guard let videoTrack = composition.addMutableTrack(
-            withMediaType: .video,
-            preferredTrackID: kCMPersistentTrackID_Invalid
-        ) else {
+        let videoTracks = (0..<2).compactMap { _ in
+            composition.addMutableTrack(
+                withMediaType: .video,
+                preferredTrackID: kCMPersistentTrackID_Invalid
+            )
+        }
+        guard videoTracks.count == 2 else {
             throw ExportError.trackCreationFailed
         }
-        let audioTrack = composition.addMutableTrack(
-            withMediaType: .audio,
-            preferredTrackID: kCMPersistentTrackID_Invalid
-        )
+        let audioTracks = (0..<2).compactMap { _ in
+            composition.addMutableTrack(
+                withMediaType: .audio,
+                preferredTrackID: kCMPersistentTrackID_Invalid
+            )
+        }
 
         let videoComposition = AVMutableVideoComposition()
         videoComposition.renderSize = plan.outputDimensions.size
         videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
-        var instructions: [AVMutableVideoCompositionInstruction] = []
-        let audioParameters = audioTrack.map { AVMutableAudioMixInputParameters(track: $0) }
+        let audioParameters = audioTracks.map { AVMutableAudioMixInputParameters(track: $0) }
+        var insertedSegments: [InsertedVideoSegment] = []
 
-        for segment in plan.segments {
+        for (index, segment) in plan.segments.enumerated() {
             let clip = segment.clip
             guard FileManager.default.fileExists(atPath: clip.fileURL.path) else {
                 throw ExportError.missingClip(clip.fileURL.lastPathComponent)
@@ -213,42 +237,123 @@ nonisolated enum RenderCompositionBuilder {
             }
             let timeRange = CMTimeRange(start: sourceStart, duration: duration)
             let insertionTime = CMTime(seconds: segment.timelineStart, preferredTimescale: 600)
+            let trackIndex = index % videoTracks.count
+            let videoTrack = videoTracks[trackIndex]
             try videoTrack.insertTimeRange(timeRange, of: sourceVideoTrack, at: insertionTime)
 
-            if let audioTrack, let sourceAudioTrack = try await asset.loadTracks(withMediaType: .audio).first {
+            if audioTracks.indices.contains(trackIndex),
+               let sourceAudioTrack = try await asset.loadTracks(withMediaType: .audio).first {
+                let audioTrack = audioTracks[trackIndex]
                 try audioTrack.insertTimeRange(timeRange, of: sourceAudioTrack, at: insertionTime)
-                let volume = plan.editStyle == .silentFilm ? 0 : min(max(clip.volume, 0), 1)
-                audioParameters?.setVolume(Float(volume), at: insertionTime)
+            }
+
+            let volume = Float(plan.editStyle == .silentFilm ? 0 : min(max(clip.volume, 0), 1))
+            if audioParameters.indices.contains(trackIndex) {
+                let parameters = audioParameters[trackIndex]
+                if segment.transitionDuration > 0 {
+                    let transitionRange = CMTimeRange(
+                        start: insertionTime,
+                        duration: CMTime(seconds: segment.transitionDuration, preferredTimescale: 600)
+                    )
+                    parameters.setVolume(0, at: insertionTime)
+                    parameters.setVolumeRamp(fromStartVolume: 0, toEndVolume: volume, timeRange: transitionRange)
+                    if index > 0 {
+                        let previousIndex = (index - 1) % audioParameters.count
+                        let previousVolume = Float(
+                            plan.editStyle == .silentFilm
+                                ? 0
+                                : min(max(plan.segments[index - 1].clip.volume, 0), 1)
+                        )
+                        audioParameters[previousIndex].setVolumeRamp(
+                            fromStartVolume: previousVolume,
+                            toEndVolume: 0,
+                            timeRange: transitionRange
+                        )
+                    }
+                } else {
+                    parameters.setVolume(volume, at: insertionTime)
+                }
             }
 
             let naturalSize = try await sourceVideoTrack.load(.naturalSize)
             let preferredTransform = try await sourceVideoTrack.load(.preferredTransform)
-            let instruction = AVMutableVideoCompositionInstruction()
-            instruction.timeRange = CMTimeRange(start: insertionTime, duration: duration)
-            let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: videoTrack)
-            layerInstruction.setTransform(
-                normalizedTransform(
-                    naturalSize: naturalSize,
-                    preferredTransform: preferredTransform,
-                    renderSize: plan.outputDimensions.size
-                ),
-                at: insertionTime
+            insertedSegments.append(
+                InsertedVideoSegment(
+                    segment: segment,
+                    track: videoTrack,
+                    transform: normalizedTransform(
+                        naturalSize: naturalSize,
+                        preferredTransform: preferredTransform,
+                        renderSize: plan.outputDimensions.size
+                    )
+                )
             )
-            instruction.layerInstructions = [layerInstruction]
+        }
+
+        guard insertedSegments.count == plan.segments.count else {
+            throw ExportError.incompleteExport
+        }
+        var instructions = makeVideoInstructions(for: insertedSegments)
+        instructions.sort { CMTimeCompare($0.timeRange.start, $1.timeRange.start) < 0 }
+        guard !instructions.isEmpty else { throw ExportError.incompleteExport }
+        videoComposition.instructions = instructions
+        configureAnimationTool(for: plan, videoComposition: videoComposition)
+        let audioMix: AVAudioMix?
+        if audioParameters.isEmpty {
+            audioMix = nil
+        } else {
+            let mix = AVMutableAudioMix()
+            mix.inputParameters = audioParameters
+            audioMix = mix
+        }
+        return PreparedRender(composition: composition, videoComposition: videoComposition, audioMix: audioMix)
+    }
+
+    private static func makeVideoInstructions(
+        for insertedSegments: [InsertedVideoSegment]
+    ) -> [AVMutableVideoCompositionInstruction] {
+        var instructions: [AVMutableVideoCompositionInstruction] = []
+
+        for (index, inserted) in insertedSegments.enumerated() {
+            let segment = inserted.segment
+            let nextTransition = insertedSegments.indices.contains(index + 1)
+                ? insertedSegments[index + 1].segment.transitionDuration
+                : 0
+            let passStart = segment.timelineStart + segment.transitionDuration
+            let passEnd = segment.timelineStart + segment.duration - nextTransition
+            if passEnd - passStart > 0.001 {
+                let start = CMTime(seconds: passStart, preferredTimescale: 600)
+                let instruction = AVMutableVideoCompositionInstruction()
+                instruction.timeRange = CMTimeRange(
+                    start: start,
+                    duration: CMTime(seconds: passEnd - passStart, preferredTimescale: 600)
+                )
+                let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: inserted.track)
+                layer.setTransform(inserted.transform, at: start)
+                instruction.layerInstructions = [layer]
+                instructions.append(instruction)
+            }
+
+            guard index > 0, segment.transitionDuration > 0 else { continue }
+            let outgoing = insertedSegments[index - 1]
+            let transitionStart = CMTime(seconds: segment.timelineStart, preferredTimescale: 600)
+            let transitionRange = CMTimeRange(
+                start: transitionStart,
+                duration: CMTime(seconds: segment.transitionDuration, preferredTimescale: 600)
+            )
+            let outgoingLayer = AVMutableVideoCompositionLayerInstruction(assetTrack: outgoing.track)
+            outgoingLayer.setTransform(outgoing.transform, at: transitionStart)
+            outgoingLayer.setOpacityRamp(fromStartOpacity: 1, toEndOpacity: 0, timeRange: transitionRange)
+            let incomingLayer = AVMutableVideoCompositionLayerInstruction(assetTrack: inserted.track)
+            incomingLayer.setTransform(inserted.transform, at: transitionStart)
+            incomingLayer.setOpacityRamp(fromStartOpacity: 0, toEndOpacity: 1, timeRange: transitionRange)
+            let instruction = AVMutableVideoCompositionInstruction()
+            instruction.timeRange = transitionRange
+            instruction.layerInstructions = [outgoingLayer, incomingLayer]
             instructions.append(instruction)
         }
 
-        guard instructions.count == plan.segments.count else {
-            throw ExportError.incompleteExport
-        }
-        videoComposition.instructions = instructions
-        configureAnimationTool(for: plan, videoComposition: videoComposition)
-        let audioMix: AVAudioMix? = audioParameters.map { parameters in
-            let mix = AVMutableAudioMix()
-            mix.inputParameters = [parameters]
-            return mix
-        }
-        return PreparedRender(composition: composition, videoComposition: videoComposition, audioMix: audioMix)
+        return instructions
     }
 
     private static func configureAnimationTool(

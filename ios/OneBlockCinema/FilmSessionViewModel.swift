@@ -207,7 +207,8 @@ class FilmSessionViewModel {
         end: TimeInterval,
         showTitle: Bool? = nil,
         title: String? = nil,
-        volume: Double? = nil
+        volume: Double? = nil,
+        transitionStyle: TransitionStyle? = nil
     ) {
         guard let index = activeSession?.clips.firstIndex(where: { $0.id == id }),
               let duration = activeSession?.clips[index].duration,
@@ -226,6 +227,9 @@ class FilmSessionViewModel {
         }
         if let volume {
             activeSession?.clips[index].volume = min(max(volume, 0), 1)
+        }
+        if let transitionStyle {
+            activeSession?.clips[index].transitionStyle = transitionStyle
         }
         saveCurrentSession()
     }

@@ -14,7 +14,7 @@ Current implementation truth:
 - 10 guided launch templates and step-by-step prompts
 - AVFoundation 1080p camera recording plus equal Photos-library import, prompt overlays, focus/exposure, torch, zoom, stabilization, microphone control, and retake review
 - GRDB-backed local projects, relative media paths, recovery records, and a durable sync outbox
-- durable, non-destructive clip trim points and user-controlled assembly order
+- durable, non-destructive clip trim points, user-controlled assembly order, and cuts/crossfades
 - clip title overlays, per-clip audio levels, standard/silent-film looks, and real AVPlayer preview
 - cancellable, orientation-normalized 1080p-class MP4 export from the same render plan
 - credential-free Fastify/pg-boss, Supabase RLS migration, and admin moderation-console foundations; external services remain disabled

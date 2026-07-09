@@ -213,7 +213,8 @@ struct OneBlockCinemaTests {
         firstClip.showTitle = true
         firstClip.titleText = "An opening"
         firstClip.volume = 0.35
-        let secondClip = FilmClip(promptId: secondPrompt.id, fileURL: secondURL, duration: 4)
+        var secondClip = FilmClip(promptId: secondPrompt.id, fileURL: secondURL, duration: 4)
+        secondClip.transitionStyle = .crossfade
         var session = FilmSession(
             id: sessionId,
             theme: .documentary,
@@ -232,6 +233,7 @@ struct OneBlockCinemaTests {
         #expect(loadedFirstClip.trimmedDuration == 4.5)
         #expect(loadedFirstClip.titleText == "An opening")
         #expect(loadedFirstClip.volume == 0.35)
+        #expect(loaded.clips.first { $0.id == secondClip.id }?.transitionStyle == .crossfade)
     }
 
     @Test func migratesLegacyUserDefaultsOnlyOnce() async throws {
@@ -449,6 +451,40 @@ struct OneBlockCinemaTests {
         #expect(plan.titleCues.first?.text == "Opening image")
         #expect(plan.titleCues.first?.timelineStart == 0)
         #expect(plan.titleCues.first?.duration == 1.5)
+    }
+
+    @Test func renderPlanOverlapsCrossfadesUsingPacingPreset() {
+        let first = makeClip(1, duration: 4)
+        var second = makeClip(2, duration: 6)
+        second.transitionStyle = .crossfade
+        let project = FilmSession(
+            theme: .documentary,
+            clips: [first, second],
+            pacingStyle: .rhythmic
+        )
+
+        let plan = VideoExportLimits.plan(for: project)
+
+        #expect(plan.segments.map(\.transitionDuration) == [0, 0.8])
+        #expect(abs(plan.segments[1].timelineStart - 3.2) < 0.0001)
+        #expect(abs(plan.totalDuration - 9.2) < 0.0001)
+    }
+
+    @Test func crossfadeTimelineStillHonorsMaximumDuration() {
+        let first = makeClip(1, duration: 100)
+        var second = makeClip(2, duration: 100)
+        second.transitionStyle = .crossfade
+        let project = FilmSession(
+            theme: .documentary,
+            clips: [first, second],
+            pacingStyle: .rhythmic
+        )
+
+        let plan = VideoExportLimits.plan(for: project, maxDuration: 180)
+
+        #expect(abs(plan.totalDuration - 180) < 0.0001)
+        #expect(plan.segments[1].duration < second.duration)
+        #expect(plan.wasTrimmedToMaximumDuration)
     }
 
     @Test func renderPlanSkipsExplicitlyMissingMedia() {

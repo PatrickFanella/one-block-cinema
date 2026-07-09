@@ -186,8 +186,9 @@ struct AssemblyView: View {
 
     private func clipStatusText(_ clip: FilmClip?) -> String {
         guard let clip else { return "Missing clip — this shot will be skipped." }
+        let transition = clip.transitionStyle == .crossfade ? " · crossfade in" : ""
         return clip.duration > 0
-            ? String(format: "Using %.1fs of %.1fs", clip.trimmedDuration, clip.duration)
+            ? String(format: "Using %.1fs of %.1fs", clip.trimmedDuration, clip.duration) + transition
             : "Clip ready · imported duration unavailable"
     }
 
@@ -198,9 +199,9 @@ struct AssemblyView: View {
                 .foregroundStyle(CinemaColors.warmWhite)
 
             capabilityRow(icon: "checkmark.circle.fill", text: "Uses your saved clip order and non-destructive trim points")
-            capabilityRow(icon: "checkmark.circle.fill", text: "Renders clip title overlays, per-clip audio levels, and the selected look")
+            capabilityRow(icon: "checkmark.circle.fill", text: "Renders cuts/crossfades, clip titles, per-clip audio levels, and the selected look")
             capabilityRow(icon: "checkmark.circle.fill", text: "Skips prompts that do not have clips yet")
-            capabilityRow(icon: "lock.fill", text: "Transitions, standalone intertitle cards, voiceover, and soundtrack beds are not built yet")
+            capabilityRow(icon: "lock.fill", text: "Standalone intertitle cards, voiceover, and soundtrack beds are not built yet")
         }
         .padding(14)
         .background(CinemaColors.surface.opacity(0.8))
@@ -209,7 +210,7 @@ struct AssemblyView: View {
 
     private var lookSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Film Look")
+            Text("Finishing")
                 .font(.system(.headline, design: .serif))
                 .foregroundStyle(CinemaColors.warmWhite)
 
@@ -224,6 +225,24 @@ struct AssemblyView: View {
                 Text("Silent Film").tag(EditStyle.silentFilm)
             }
             .pickerStyle(.segmented)
+
+            Picker(
+                "Crossfade pacing",
+                selection: Binding(
+                    get: { viewModel.activeSession?.pacingStyle ?? .rhythmic },
+                    set: { viewModel.setPacingStyle($0) }
+                )
+            ) {
+                ForEach(PacingStyle.allCases) { style in
+                    Text(style.displayName).tag(style)
+                }
+            }
+
+            if let pacing = viewModel.activeSession?.pacingStyle {
+                Text("Crossfades use the \(pacing.displayName.lowercased()) preset (up to \(String(format: "%.1f", pacing.transitionDuration)) seconds).")
+                    .font(.caption)
+                    .foregroundStyle(CinemaColors.dimText)
+            }
 
             Text(viewModel.activeSession?.editStyle == .silentFilm
                 ? "Adds a warm archival tint and mutes source audio in preview and export."
@@ -280,6 +299,7 @@ struct ClipDetailSheet: View {
     @State private var showTitle: Bool
     @State private var titleText: String
     @State private var volume: Double
+    @State private var transitionStyle: TransitionStyle
 
     init(clip: FilmClip, viewModel: FilmSessionViewModel) {
         self.clip = clip
@@ -289,6 +309,7 @@ struct ClipDetailSheet: View {
         _showTitle = State(initialValue: clip.showTitle)
         _titleText = State(initialValue: clip.titleText)
         _volume = State(initialValue: min(max(clip.volume, 0), 1))
+        _transitionStyle = State(initialValue: clip.transitionStyle)
     }
 
     var body: some View {
@@ -354,6 +375,17 @@ struct ClipDetailSheet: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Section("Transition into clip") {
+                    Picker("Transition", selection: $transitionStyle) {
+                        Text("Straight Cut").tag(TransitionStyle.cut)
+                        Text("Crossfade").tag(TransitionStyle.crossfade)
+                    }
+                    .pickerStyle(.segmented)
+                    Text("The first clip always starts directly. Crossfade timing follows the film's pacing preset.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section {
                     Button("Remove Clip", role: .destructive) {
                         viewModel.removeClip(clip)
@@ -372,7 +404,8 @@ struct ClipDetailSheet: View {
                             end: trimEnd,
                             showTitle: showTitle,
                             title: titleText,
-                            volume: volume
+                            volume: volume,
+                            transitionStyle: transitionStyle
                         )
                         dismiss()
                     }
