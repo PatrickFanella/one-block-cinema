@@ -1,0 +1,42 @@
+included:
+  - ios/OneBlockCinema
+  - ios/OneBlockCinemaTests
+  - ios/OneBlockCinemaUITests
+
+excluded:
+  - ios/OneBlockCinema/Assets.xcassets
+
+disabled_rules:
+  - todo
+  - trailing_comma
+
+opt_in_rules:
+  - empty_count
+  - empty_string
+  - first_where
+  - sorted_imports
+
+line_length:
+  warning: 180
+  error: 240
+  ignores_comments: true
+  ignores_urls: true
+
+file_length:
+  warning: 500
+  error: 750
+
+type_body_length:
+  warning: 400
+  error: 600
+
+function_body_length:
+  warning: 80
+  error: 140
+
+identifier_name:
+  min_length: 2
+  excluded:
+    - id
+    - x
+    - y

@@ -38,6 +38,8 @@ node_modules/
 dist/
 build/
 coverage/
+.bundle/
+vendor/bundle/
 
 # Swift / Xcode
 DerivedData/

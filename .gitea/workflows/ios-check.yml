@@ -1,0 +1,22 @@
+name: iOS check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify-ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned quality tools
+        run: |
+          brew install swiftformat swiftlint
+      - name: Verify formatting and lint
+        run: |
+          make fmt
+          make lint
+      - name: Execute iOS tests
+        run: make ios-test
+      - name: Validate unsigned archive
+        run: make archive-check

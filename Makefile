@@ -1,7 +1,7 @@
 SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 
-.PHONY: help verify fmt lint test docs-check templates-check open-pilot-check secrets-check xcode-note
+.PHONY: help verify fmt lint test ios-build ios-test archive-check docs-check templates-check open-pilot-check secrets-check xcode-note
 
 help: ## Show commands
 	@awk 'BEGIN {FS = ":.*##"; printf "Commands:\n"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -9,13 +9,34 @@ help: ## Show commands
 verify: fmt lint test docs-check templates-check open-pilot-check secrets-check xcode-note ## Run all checks
 
 fmt: ## Format files where repo tooling is available
-	@echo 'skip fmt: no Swift formatter configured yet'
+	@if command -v swiftformat >/dev/null 2>&1; then \
+		swiftformat --lint ios/OneBlockCinema ios/OneBlockCinemaTests ios/OneBlockCinemaUITests; \
+	else \
+		echo 'skip fmt: install SwiftFormat to run the configured check'; \
+	fi
 
 lint: ## Run lightweight lint checks
-	@echo 'skip lint: no Swift linter configured yet'
+	@if command -v swiftlint >/dev/null 2>&1; then \
+		swiftlint lint --strict; \
+	else \
+		echo 'skip lint: install SwiftLint to run the configured check'; \
+	fi
 
 test: ## Run deterministic tests available on this host
-	@echo 'skip tests: Xcode tests require macOS runner'
+	@if command -v xcodebuild >/dev/null 2>&1; then \
+		$(MAKE) ios-build; \
+	else \
+		echo 'skip tests: Xcode tests require a macOS runner'; \
+	fi
+
+ios-build: ## Compile the app and all test bundles without signing
+	@xcodebuild build-for-testing -project ios/OneBlockCinema.xcodeproj -scheme OneBlockCinema -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO
+
+ios-test: ## Execute tests on the first available iPhone simulator
+	@scripts/xcode_test.sh
+
+archive-check: ## Create an unsigned archive to validate release packaging
+	@xcodebuild archive -project ios/OneBlockCinema.xcodeproj -scheme OneBlockCinema -destination 'generic/platform=iOS' -archivePath build/OneBlockCinema.xcarchive CODE_SIGNING_ALLOWED=NO
 
 docs-check: ## Verify required docs exist
 	@test -f README.md
@@ -44,4 +65,8 @@ secrets-check: ## Check for common committed secret filenames
 	fi
 
 xcode-note: ## Explain iOS verification status on non-macOS runners
-	@echo 'iOS/Xcode tests are not part of Linux make verify yet; add xcodebuild checks when macOS runner is available.'
+	@if command -v xcodebuild >/dev/null 2>&1; then \
+		echo 'iOS test bundles compiled; run make ios-test with a healthy CoreSimulator service to execute them.'; \
+	else \
+		echo 'iOS/Xcode tests require the macOS CI job; Linux verification covers repository contracts.'; \
+	fi
