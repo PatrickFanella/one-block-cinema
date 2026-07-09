@@ -160,6 +160,40 @@ struct OneBlockCinemaTests {
         #expect(resumedViewModel.currentPromptIndex == 1)
     }
 
+    @Test @MainActor func resumeRoutesMissingMediaToItsShot() {
+        let (viewModel, _) = makeViewModel()
+        let firstPrompt = ShotPrompt(
+            index: 0,
+            direction: "Opening",
+            hint: "",
+            icon: "film",
+            isCompleted: true
+        )
+        let secondPrompt = ShotPrompt(
+            index: 1,
+            direction: "Detail",
+            hint: "",
+            icon: "eye",
+            isCompleted: true
+        )
+        let missingClip = FilmClip(
+            promptId: secondPrompt.id,
+            fileURL: URL(fileURLWithPath: "/missing/detail.mov"),
+            duration: 2,
+            mediaStatus: .missing
+        )
+        let session = FilmSession(
+            theme: .documentary,
+            prompts: [firstPrompt, secondPrompt],
+            clips: [missingClip]
+        )
+
+        viewModel.resumeSession(session)
+
+        #expect(viewModel.currentPromptIndex == 1)
+        #expect(viewModel.currentPromptClip?.mediaStatus == .missing)
+    }
+
     @Test @MainActor func deletesDraftSession() async throws {
         let (viewModel, storage) = makeViewModel()
         viewModel.startNewSession(theme: .horror)
@@ -222,6 +256,46 @@ struct OneBlockCinemaTests {
         let loadedClip = try #require(try await storage.loadSessions().first?.clips.first)
         #expect(loadedClip.mediaStatus == .missing)
         #expect(!loadedClip.isMediaAvailable)
+        #expect(try await storage.auditStorage().missingClipCount == 1)
+    }
+
+    @Test func cleanupRemovesOnlyStaleUnreferencedDraftMedia() async throws {
+        let (storage, _, rootDirectory) = makeStorage()
+        let now = Date()
+        let sourceURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("source-\(UUID().uuidString).mov")
+        try Data("referenced-video".utf8).write(to: sourceURL)
+        defer { try? FileManager.default.removeItem(at: sourceURL) }
+
+        let prompt = ShotPrompt(index: 0, direction: "Opening", hint: "", icon: "film")
+        let sessionId = UUID()
+        let durableURL = try await storage.copyClip(sourceURL, for: sessionId)
+        var session = FilmSession(id: sessionId, theme: .documentary, prompts: [prompt])
+        let attached = session.attachClip(FilmClip(promptId: prompt.id, fileURL: durableURL, duration: 2))
+        #expect(attached)
+        try await storage.saveSessions([session])
+
+        let mediaDirectory = rootDirectory
+            .appendingPathComponent("Drafts/\(sessionId.uuidString)/Media", isDirectory: true)
+        let staleOrphan = mediaDirectory.appendingPathComponent("stale-orphan.mov")
+        let freshOrphan = mediaDirectory.appendingPathComponent("fresh-orphan.mov")
+        try Data("stale".utf8).write(to: staleOrphan)
+        try Data("fresh".utf8).write(to: freshOrphan)
+        try FileManager.default.setAttributes(
+            [.modificationDate: now.addingTimeInterval(-25 * 60 * 60)],
+            ofItemAtPath: staleOrphan.path
+        )
+
+        let health = try await storage.auditStorage(now: now)
+        #expect(health.reclaimableFileCount == 1)
+        #expect(health.missingClipCount == 0)
+
+        let result = try await storage.cleanupOrphanedMedia(now: now)
+        #expect(result.removedFileCount == 1)
+        #expect(result.reclaimedBytes >= 5)
+        #expect(FileManager.default.fileExists(atPath: durableURL.path))
+        #expect(!FileManager.default.fileExists(atPath: staleOrphan.path))
+        #expect(FileManager.default.fileExists(atPath: freshOrphan.path))
     }
 
     @Test func persistsClipOrderAndTrimDecisions() async throws {

@@ -7,13 +7,14 @@ Implemented foundations:
 - Deterministic portable/macOS CI, check-only SwiftFormat/SwiftLint, unsigned archive validation, and Fastlane release lanes.
 - Ten versioned, schema-validated bundled templates.
 - GRDB projects/clips, relative media paths, idempotent legacy migration, missing-media recovery records, and durable sync outbox.
+- My Films identifies missing source clips, routes directly to replacement capture/import, and safely reclaims stale unreferenced media after an in-flight grace period.
 - Real AVPlayer preview and cancellable, orientation-normalized 1080p-class MP4 export from one `RenderPlan` with audio preservation, disk checks, and the 180-second cap.
 - Import-first fallback remains fully offline and account-free.
 
 Remaining gates:
 
 - Execute simulator tests after repairing the host CoreSimulator mismatch.
-- Add representative media fixtures, background interruption recovery, storage cleanup, and a user-facing repair flow.
+- Add representative media fixtures and background interruption recovery.
 - Verify all templates end to end on physical devices.
 
 ## 0.5 External TestFlight — filmmaking toolkit

@@ -18,6 +18,9 @@ class FilmSessionViewModel {
     var showCamera: Bool = false
     var showPhotoPicker: Bool = false
     var showExportShare: Bool = false
+    var storageHealth: DraftStorageHealth = .empty
+    var storageCleanupMessage: String?
+    var isCleaningStorage: Bool = false
 
     private let storage: SessionStorage
     private let exportService = VideoExportService()
@@ -55,6 +58,14 @@ class FilmSessionViewModel {
             errorMessage = "Failed to load drafts: \(error.localizedDescription)"
             showError = true
             sessions = []
+        }
+
+        do {
+            storageHealth = try await storage.auditStorage()
+        } catch {
+            storageHealth = .empty
+            errorMessage = "Drafts loaded, but storage recovery could not be checked: \(error.localizedDescription)"
+            showError = true
         }
     }
 
@@ -99,9 +110,33 @@ class FilmSessionViewModel {
 
     func resumeSession(_ session: FilmSession) {
         activeSession = session
-        let firstIncomplete = session.prompts.firstIndex(where: { !$0.isCompleted }) ?? 0
-        currentPromptIndex = firstIncomplete
+        let missingPromptId = session.clips.first(where: { $0.mediaStatus == .missing })?.promptId
+        let firstMissing = missingPromptId.flatMap { id in
+            session.prompts.firstIndex(where: { $0.id == id })
+        }
+        currentPromptIndex = firstMissing
+            ?? session.prompts.firstIndex(where: { !$0.isCompleted })
+            ?? 0
         resetExportState()
+    }
+
+    func cleanupUnusedMedia() async {
+        guard !isCleaningStorage else { return }
+        isCleaningStorage = true
+        storageCleanupMessage = nil
+        defer { isCleaningStorage = false }
+        await pendingPersistenceTask?.value
+
+        do {
+            let result = try await storage.cleanupOrphanedMedia()
+            storageHealth = try await storage.auditStorage()
+            storageCleanupMessage = result.removedFileCount == 0
+                ? "No unused media was ready to remove."
+                : "Removed \(result.removedFileCount) unused file\(result.removedFileCount == 1 ? "" : "s") and reclaimed \(Self.formattedBytes(result.reclaimedBytes))."
+        } catch {
+            errorMessage = "Could not clean up unused media: \(error.localizedDescription)"
+            showError = true
+        }
     }
 
     func nextPrompt() {
@@ -404,6 +439,10 @@ class FilmSessionViewModel {
         let minutes = Int(duration) / 60
         let seconds = Int(duration) % 60
         return seconds == 0 ? "\(minutes)m" : "\(minutes)m \(seconds)s"
+    }
+
+    private static func formattedBytes(_ bytes: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 }
 

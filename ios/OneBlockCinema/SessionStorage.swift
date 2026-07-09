@@ -31,7 +31,7 @@ actor SessionStorage {
 
     private let userDefaults: UserDefaults
     private let sessionsKey: String
-    private let fileManager: FileManager
+    let fileManager: FileManager
     private let configuredRootDirectory: URL?
     private var databaseQueue: DatabaseQueue?
 
@@ -47,7 +47,7 @@ actor SessionStorage {
         configuredRootDirectory = rootDirectory
     }
 
-    private var rootDirectory: URL {
+    var rootDirectory: URL {
         get throws {
             if let configuredRootDirectory {
                 return configuredRootDirectory.standardizedFileURL
@@ -71,6 +71,10 @@ actor SessionStorage {
         get throws { try rootDirectory.appendingPathComponent("sessions.json") }
     }
 
+    var draftsDirectory: URL {
+        get throws { try rootDirectory.appendingPathComponent("Drafts", isDirectory: true) }
+    }
+
     private func draftDirectory(for sessionId: UUID) throws -> URL {
         try rootDirectory
             .appendingPathComponent("Drafts", isDirectory: true)
@@ -85,7 +89,7 @@ actor SessionStorage {
         try fileManager.createDirectory(at: url, withIntermediateDirectories: true)
     }
 
-    private func database() throws -> DatabaseQueue {
+    func database() throws -> DatabaseQueue {
         if let databaseQueue {
             return databaseQueue
         }
@@ -187,7 +191,7 @@ actor SessionStorage {
     }
 
     func deleteClipFile(at url: URL) throws {
-        guard Self.isDescendant(url, of: try rootDirectory) else {
+        guard DraftStorageMaintenance.isDescendant(url, of: try draftsDirectory) else {
             throw SessionStorageError.unsafeMediaPath
         }
         guard fileManager.fileExists(atPath: url.path) else { return }
@@ -297,7 +301,7 @@ actor SessionStorage {
         }
     }
 
-    private func migrateLegacyIfNeeded(in queue: DatabaseQueue) throws {
+    func migrateLegacyIfNeeded(in queue: DatabaseQueue) throws {
         let alreadyMigrated = try queue.read { db in
             try String.fetchOne(
                 db,

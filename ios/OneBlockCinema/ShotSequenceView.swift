@@ -133,7 +133,15 @@ struct ShotSequenceView: View {
                     .lineSpacing(2)
             }
 
-            if prompt.isCompleted {
+            if session?.clip(forPromptId: prompt.id)?.mediaStatus == .missing {
+                Label("Clip missing — capture or import a replacement", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(.orange.opacity(0.15))
+                    .clipShape(Capsule())
+            } else if prompt.isCompleted {
                 Label(clipStatusText(for: prompt), systemImage: "checkmark.circle.fill")
                     .font(.caption)
                     .foregroundStyle(CinemaColors.amber)
@@ -208,10 +216,11 @@ struct ShotSequenceView: View {
             Button {
                 showCapture = true
             } label: {
+                let needsRepair = viewModel.currentPromptClip?.mediaStatus == .missing
                 HStack(spacing: 8) {
-                    Image(systemName: viewModel.currentPrompt?.isCompleted == true ? "arrow.triangle.2.circlepath" : "camera.fill")
+                    Image(systemName: needsRepair ? "wrench.and.screwdriver.fill" : viewModel.currentPrompt?.isCompleted == true ? "arrow.triangle.2.circlepath" : "camera.fill")
                         .contentTransition(.symbolEffect(.replace))
-                    Text(viewModel.currentPrompt?.isCompleted == true ? "Reshoot" : "Capture")
+                    Text(needsRepair ? "Repair Clip" : viewModel.currentPrompt?.isCompleted == true ? "Reshoot" : "Capture")
                         .font(.system(.headline, design: .serif))
                 }
                 .foregroundStyle(CinemaColors.background)

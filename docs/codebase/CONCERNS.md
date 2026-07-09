@@ -11,7 +11,7 @@
 
 ## Architecture risks
 
-- Draft persistence now uses GRDB, relative paths, and missing-media recovery; a user-facing repair workflow and storage-pressure cleanup policy remain incomplete.
+- Draft persistence now uses GRDB, relative paths, missing-media routing, and conservative orphan cleanup; low-storage interruption policy and support tooling for unreadable legacy records remain incomplete.
 - Backend/RLS/service boundaries exist, but iOS auth, resumable media sync, environment provisioning, and operational validation are not implemented.
 - The privacy manifest matches the local-only build; legal documents still contain owner/contact/retention placeholders and connected features require a new disclosure review.
 - Offline editing plus conflict-safe sync is non-trivial.

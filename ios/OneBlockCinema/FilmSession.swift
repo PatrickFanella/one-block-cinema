@@ -171,6 +171,10 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
         prompts.filter(\.isCompleted).count
     }
 
+    var missingClipCount: Int {
+        clips.filter { $0.mediaStatus == .missing }.count
+    }
+
     var progress: Double {
         guard !prompts.isEmpty else { return 0 }
         return Double(completedPromptCount) / Double(prompts.count)
