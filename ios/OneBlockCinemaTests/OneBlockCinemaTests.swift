@@ -117,8 +117,9 @@ struct OneBlockCinemaTests {
         let clip = FilmClip(promptId: secondPrompt.id, fileURL: URL(fileURLWithPath: "/tmp/detail.mov"), duration: 4)
 
         var session = FilmSession(theme: .documentary, prompts: [firstPrompt, secondPrompt])
+        let attached = session.attachClip(clip)
 
-        #expect(session.attachClip(clip))
+        #expect(attached)
         #expect(session.prompts[0].isCompleted == false)
         #expect(session.prompts[1].isCompleted == true)
         #expect(session.clip(forPromptId: secondPrompt.id) == clip)
@@ -130,9 +131,11 @@ struct OneBlockCinemaTests {
         let replacementClip = FilmClip(promptId: prompt.id, fileURL: URL(fileURLWithPath: "/tmp/replacement.mov"), duration: 5)
 
         var session = FilmSession(theme: .documentary, prompts: [prompt])
+        let attachedFirstClip = session.attachClip(firstClip)
+        let attachedReplacementClip = session.attachClip(replacementClip)
 
-        #expect(session.attachClip(firstClip))
-        #expect(session.attachClip(replacementClip))
+        #expect(attachedFirstClip)
+        #expect(attachedReplacementClip)
         #expect(session.clips.count == 1)
         #expect(session.clip(forPromptId: prompt.id)?.fileURL == replacementClip.fileURL)
         #expect(session.prompts[0].isCompleted)

@@ -105,7 +105,7 @@ struct PreviewExportView: View {
 
     private func timelineBar(_ session: FilmSession) -> some View {
         let orderedClips = session.clipsInPromptOrder
-        HStack(spacing: 3) {
+        return HStack(spacing: 3) {
             ForEach(Array(orderedClips.enumerated()), id: \.element.id) { index, _ in
                 RoundedRectangle(cornerRadius: 2)
                     .fill(index == currentClipIndex ? CinemaColors.amber : CinemaColors.surfaceLight)
