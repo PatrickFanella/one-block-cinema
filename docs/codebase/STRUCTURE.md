@@ -33,6 +33,7 @@
 - `HomeView.swift` — template/session start.
 - `ShotSequenceView.swift` — prompt sequence guidance.
 - `CaptureView.swift` — clip capture/import screen.
+- `CameraCapture.swift` — AVFoundation session, recording controls, permission recovery, and preview-layer bridge.
 - `AssemblyView.swift` — assembly/timeline screen.
 - `PreviewExportView.swift` — preview/export screen.
 - `MyFilmsView.swift` — saved session gallery.

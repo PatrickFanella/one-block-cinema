@@ -1,72 +1,67 @@
-# Roadmap
+# Production Roadmap
 
-## Phase 0: Alignment and scaffolding
+## 0.1 Internal alpha — offline creator
 
-- Align docs with actual codebase and MVP decisions.
-- Define launch template schema and map it to Swift models.
-- Adopt import-first capture for the MVP milestone.
-- Remove, disable, or clearly label placeholder camera/export/editor paths.
-- Add basic unit tests for session lifecycle and prompt generation.
-- Keep `make verify` passing on Linux.
+Implemented foundations:
 
-## Phase 1: Core foundations
+- Deterministic portable/macOS CI, check-only SwiftFormat/SwiftLint, unsigned archive validation, and Fastlane release lanes.
+- Ten versioned, schema-validated bundled templates.
+- GRDB projects/clips, relative media paths, idempotent legacy migration, missing-media recovery records, and durable sync outbox.
+- Real AVPlayer preview and cancellable, orientation-normalized 1080p-class MP4 export from one `RenderPlan` with audio preservation, disk checks, and the 180-second cap.
+- Import-first fallback remains fully offline and account-free.
 
-- Template selection and project creation.
-- Data-driven prompt sequences.
-- Local draft persistence.
-- Import clips from library.
-- Basic assembly screen with reorder/trim scope defined.
-- Local preview/export flow.
+Remaining gates:
 
-## Phase 2: Minimal end-to-end slice
+- Execute simulator tests after repairing the host CoreSimulator mismatch.
+- Add representative media fixtures, background interruption recovery, storage cleanup, and a user-facing repair flow.
+- Verify all templates end to end on physical devices.
 
-- Import-first or verified capture flow.
-- One template-driven project can move from prompts to clips to assembly.
-- Preview/export/share path is documented and verified.
-- Unsupported editor/export claims are removed or clearly labeled.
-- First E2E verification notes exist.
+## 0.5 External TestFlight — filmmaking toolkit
 
-## Phase 3: Feature expansion
+Implemented foundation:
 
-- Ten launch templates.
-- Template-defined aspect ratios and duration targets.
-- Template picker and scoped reorder/trim editing.
-- Backend architecture for auth, sync, and community contracts.
-- Email OTP auth.
-- Google/Apple auth.
-- Profile editing.
-- Sync projects/drafts/profile.
-- Conflict handling for offline edits.
-- Community API contracts for challenges, comments, and feedback.
+- AVFoundation 1080p camera recording, front/rear cameras, tap focus/exposure, torch, bounded zoom, automatic stabilization, microphone control, prompt/aspect overlays, rotation, a 180-second recording cap, retake review, Settings recovery, and equal Photos import.
 
-## Phase 4: Quality hardening
+Remaining:
 
-- Publish flow with private-until-publish defaults.
-- Daily/weekly challenges.
-- Comments and peer feedback.
-- Reports, automated filters, and manual moderation queue.
-- Age gating for mixed content.
-- Offline mode recovery.
-- Core model/viewmodel/export test coverage.
-- Privacy-safe analytics/observability design.
+- Non-destructive trim and user-controlled reorder.
+- Straight cuts/crossfades, title/intertitle cards, standard/silent-film looks, voiceover, ambient beds, and per-track volume.
+- VoiceOver, Dynamic Type, reduced-motion, contrast, keyboard, localization, and oldest-device audits.
 
-## Phase 5: Release and operations
+## 1.0 Creator launch — accounts and sync
 
-- Privacy/safety copy.
-- App Store screenshots/copy.
-- Analytics for completion, export, retention, and community feedback.
-- QA on device permissions, offline mode, and failed exports.
-- Release checklist and operations runbooks.
+Implemented foundation:
 
-## Phase 6: Post-launch polish
+- Provider-neutral auth/sync/community protocols, revision state, non-destructive recovered-copy conflict policy, Fastify API, pg-boss worker, Supabase schema/RLS, private storage policies, and environment/deployment runbook.
 
-- AI critique/coach feedback remains post-MVP.
-- More templates and creator packs.
-- Advanced editing effects.
-- Web/admin tooling.
-- Real in-app camera recording and cinematic viewfinder overlays.
-- Monetization experiments if desired.
+Remaining:
 
-## Post-MVP
+- Provision separate development/staging/production Supabase and Fly environments.
+- Connect native OTP/Apple/Google auth and Keychain session storage.
+- Build opt-in project/original-media sync with resumable checksummed transfer and visible retry state.
+- Complete profile, export, logout/revocation, in-app account deletion, legal/privacy artifacts, backups, restore drills, rate limits, abuse protection, observability, and incident runbooks.
+- Ship with community flags disabled.
 
-- See Phase 6.
+## 1.1 Community — curated challenges
+
+Implemented foundation:
+
+- RLS tables/policies for challenges, publications, comments, reports, reciprocal blocks, teen-private safety data, moderation queues/actions, feature flags, signed Mux webhook verification, and an admin-role moderation console.
+
+Remaining:
+
+- Mux direct upload/signed playback, frame/audio extraction, automated text/image moderation, manual review operations, APNs, appeals/takedowns, staffing, and staged rollout drills.
+- The community flag remains off until all safety and App Review gates pass.
+
+## 1.2 AI Coach — explicit opt-in
+
+Only provider-neutral types and a disabled endpoint exist. Provider credentials and calls are intentionally unconfigured. Consent UX, minimized media sampling, moderation, structured critique, retention controls, evals, safety review, cost/latency thresholds, and staged rollout all remain required.
+
+## Release thresholds
+
+- No open P0/P1 security or data-loss defects.
+- At least 14 stable TestFlight days with 50 external testers.
+- Crash-free sessions at least 99.5%; supported-media export success at least 98%.
+- API availability at least 99.9% with non-media p95 below 500 ms.
+- Publication processing success at least 99% with p95 below five minutes.
+- Successful backup/restore rehearsal and exercised privacy, moderation, support, App Review, and incident runbooks.

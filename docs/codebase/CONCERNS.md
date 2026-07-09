@@ -4,7 +4,7 @@
 
 - Focused audit: `docs/codebase/GENERATED_APP_AUDIT.md` documents implemented, partial, missing, and overpromised behavior with file references and P0 blockers.
 - Generated app is not production complete.
-- Camera path appears placeholder-like and is cut from MVP in favor of import-first capture.
+- Camera capture compiles with permission recovery and import fallback, but physical-device rotation, interruption, thermal, focus, stabilization, and audio QA remain outstanding.
 - Preview and export now share one render plan, but representative-device and HDR/variable-frame-rate fixture QA remain outstanding.
 - Edit styles, transitions, title cards, trimming, and reorder UX need validation.
 - Ten templates now load from a versioned bundled catalog; editorial, device, and accessibility QA remain incomplete.
@@ -25,8 +25,8 @@
 ## Suggested first issues
 
 1. Add unit tests for prompt generation and session lifecycle.
-2. Implement and verify import-first prompt clip attachment.
+2. Run camera/import prompt attachment on the oldest supported iPhone and representative modern devices.
 3. Verify all 10 templates end-to-end with representative media and device accessibility QA.
-4. Replace or clearly disable placeholder camera UX until a post-MVP camera issue.
+4. Add deterministic camera interruption and low-storage recovery tests.
 5. Replace placeholder preview/export UX with verified behavior.
 6. Connect native auth and project sync only after disposable-environment RLS tests pass.

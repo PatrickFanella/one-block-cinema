@@ -14,14 +14,14 @@ This audit compares the generated iOS app shell with the MVP promise in `docs/pr
 - The app has a local create/library shell with generated SwiftUI screens and in-memory view model state (`ios/ContentView.swift:7-25`, `ios/OneBlockCinema/FilmSessionViewModel.swift:7-21`).
 - Users can choose from 10 schema-validated bundled templates and start a local guided session (`ios/OneBlockCinema/HomeView.swift`, `ios/OneBlockCinema/Resources/FilmTemplates.json`).
 - The template flow snapshots stable template-shot ids, timing, duration, aspect ratio, and guidance into each session and tracks guided progress (`ios/OneBlockCinema/TemplateModels.swift`, `ios/OneBlockCinema/FilmSession.swift`).
-- Users can import a video from the Photos library and attach it to the current prompt (`ios/OneBlockCinema/CaptureView.swift:39-43`, `ios/OneBlockCinema/CaptureView.swift:191-205`, `ios/OneBlockCinema/FilmSessionViewModel.swift:81-89`).
+- Users can record with AVFoundation or import from Photos, review/retake, and attach the accepted durable copy to the current prompt (`ios/OneBlockCinema/CameraCapture.swift`, `ios/OneBlockCinema/CaptureView.swift`, `ios/OneBlockCinema/FilmSessionViewModel.swift`).
 - Users can review prompt-order clips, inspect clip details, remove clips, and continue to preview/export. Editing metadata exists in the model, but editing controls remain deliberately unavailable (`ios/OneBlockCinema/AssemblyView.swift`, `ios/OneBlockCinema/FilmSessionViewModel.swift`).
 - Users can play the assembled AVFoundation composition, export the same immutable render plan, cancel with live progress, and open a native share sheet (`ios/OneBlockCinema/PreviewExportView.swift`, `ios/OneBlockCinema/VideoExportService.swift`).
 - Sessions can be saved, loaded, resumed, completed, and deleted through GRDB SQLite and relative app-support media paths, with idempotent legacy migration and missing-media recovery (`ios/OneBlockCinema/SessionStorage.swift`, `ios/OneBlockCinema/FilmSessionViewModel.swift`).
 
 ## Partial behavior
 
-- Capture/import is partial: library import works, but the camera surface is a placeholder and the record button has no recording implementation (`ios/OneBlockCinema/CaptureView.swift:82-109`, `ios/OneBlockCinema/CaptureView.swift:146-189`). This falls short of the record-or-import requirement (`docs/product/MVP_SCOPE.md:22-26`, `docs/product/MVP_SCOPE.md:60`).
+- Capture/import is production-shaped but not release-verified: native recording, import, prompt/aspect guides, focus/exposure, torch, zoom, stabilization, microphone control, rotation, and retake exist; physical-device interruption, thermal, storage, and permission QA remain incomplete.
 - Template editorial/device QA remains incomplete even though all 10 launch templates now load from a versioned bundled catalog.
 - Assembly/editing is partial: clip order mutation, title metadata, pacing/style choices, and soundtrack metadata exist, but there is no trim UI and the style/pacing controls are not a verified editor pipeline (`ios/OneBlockCinema/AssemblyView.swift:121-258`, `ios/OneBlockCinema/FilmSessionViewModel.swift:99-129`, `docs/product/MVP_SCOPE.md:28-35`).
 - Preview uses AVPlayer with the same orientation-normalized composition and template render dimensions as export. Fixture/device QA for HDR and variable-frame-rate sources remains incomplete (`ios/OneBlockCinema/PreviewExportView.swift`, `ios/OneBlockCinema/VideoExportService.swift`).
@@ -42,7 +42,6 @@ This audit compares the generated iOS app shell with the MVP promise in `docs/pr
 
 ## Overpromised behavior in the generated shell
 
-- The capture screen labels a "Camera Preview" and shows a red record control, but the implementation is a placeholder and does not record video (`ios/OneBlockCinema/CaptureView.swift:82-109`, `ios/OneBlockCinema/CaptureView.swift:172-189`).
 - The "Preview & Export" / "Export & Share" flow suggests a complete assembly/export/share pipeline, but it only marks completion, exports locally, and opens the platform share sheet (`ios/OneBlockCinema/AssemblyView.swift:240-257`, `ios/OneBlockCinema/PreviewExportView.swift:153-176`, `ios/OneBlockCinema/VideoExportService.swift:41-60`).
 - The iOS product remains local-only even though inactive backend/community foundations now exist; no local draft is uploaded without a future explicit sync flow.
 
@@ -52,4 +51,4 @@ This audit compares the generated iOS app shell with the MVP promise in `docs/pr
 2. **External environments are unconfigured.** Separate Supabase/Mux/Fly projects, credentials, SMTP, APNs, backups, and restore drills are still required.
 3. **Community safety is not operational.** RLS, reports, blocks, queues, manual review, and the admin console exist as foundations, but automated filtering, policy/runbook review, staffing, appeals, and end-to-end staging tests remain gates.
 4. **Cloud media sync is absent.** The durable local GRDB store, outbox, relative media paths, and conflict recovery types are present, but resumable cloud transfer is not.
-5. **Capture/edit/export still needs device and media-fixture hardening.** Camera recording, trim controls, transitions, titles, looks, and background export recovery remain incomplete; the shared preview/export render plan still needs representative-device and mixed-media QA (`ios/OneBlockCinema/CaptureView.swift`, `ios/OneBlockCinema/PreviewExportView.swift`, `ios/OneBlockCinema/VideoExportService.swift`).
+5. **Capture/edit/export still needs device and media-fixture hardening.** Camera device QA, trim controls, transitions, titles, looks, and background export recovery remain incomplete; the shared preview/export render plan still needs representative-device and mixed-media QA (`ios/OneBlockCinema/CameraCapture.swift`, `ios/OneBlockCinema/PreviewExportView.swift`, `ios/OneBlockCinema/VideoExportService.swift`).

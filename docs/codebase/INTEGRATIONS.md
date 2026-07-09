@@ -3,6 +3,7 @@
 ## Current app integrations
 
 - Photos/library import through iOS media APIs.
+- AVFoundation camera capture with front/rear cameras, focus/exposure, torch, zoom, stabilization, microphone control, and retake review.
 - AVFoundation video export.
 - Native share sheet/export handoff.
 - GRDB SQLite persistence for draft metadata and relative app-support media paths, with legacy JSON/`UserDefaults` migration and recovery records.
@@ -19,8 +20,6 @@
 - Social share/export destinations through platform share sheet first.
 
 ## Post-MVP integrations
-
-- Real in-app camera recording through iOS camera APIs.
 - AI critique provider wrapper.
 - Advanced analytics, if privacy-safe.
 - The admin console exists; operational SSO, hosting, and moderator drills remain future activation work.

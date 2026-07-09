@@ -8,7 +8,7 @@ An iPhone app where a beginner or hobbyist can choose a film template, follow gu
 
 - 10 launch templates exist.
 - Guided prompt flow exists.
-- Import-from-library exists; real camera recording is not implemented yet.
+- Native 1080p camera recording and Photos-library import both attach clips to guided prompts; physical-device QA remains incomplete.
 - Local-first draft metadata and imported media persistence exist.
 - Preview is real AVPlayer playback driven by the same normalized render plan as export.
 - Export/share produces a cancellable, template-aspect MP4 with progress, disk checks, audio preservation, and a 180-second cap; media-fixture/device QA remains incomplete.
@@ -33,7 +33,7 @@ An iPhone app where a beginner or hobbyist can choose a film template, follow gu
 
 ### Capture/import
 
-- MVP decision: import-first. Users add clips from the iOS photo library.
+- Users can record with the guided AVFoundation camera or import from the iOS photo library.
 - Tag clips to template prompts.
 - Save drafts locally for offline work.
 
@@ -58,7 +58,6 @@ An iPhone app where a beginner or hobbyist can choose a film template, follow gu
 ## Out of scope
 
 - AI critique/feedback.
-- Real in-app camera recording, camera permission flows, cinematic viewfinder overlays, and device camera QA.
 - Paid subscriptions or freemium template gates.
 - Desktop/web editor.
 - Professional editing suite features.
@@ -82,6 +81,6 @@ An iPhone app where a beginner or hobbyist can choose a film template, follow gu
 ## Risks
 
 - Auth + sync + community + offline export may be too large for first implementation pass.
-- Current generated app promises real camera/edit/export behavior that is only partly implemented; camera recording is explicitly post-MVP unless a later issue changes scope.
+- Camera and export now have production-shaped foundations, but physical-device and mixed-media fixture QA remain release gates.
 - Community and mixed-content safety require policy and moderation before launch.
 - Template count of 10 may slow launch unless template format is simple and data-driven.
