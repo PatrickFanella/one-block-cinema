@@ -12,6 +12,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
     let assemblyGuidance: TemplateAssemblyGuidance?
     var prompts: [ShotPrompt]
     var clips: [FilmClip]
+    var clipOrder: [UUID]
     var pacingStyle: PacingStyle
     var editStyle: EditStyle
     var useAmbientSoundtrack: Bool
@@ -35,6 +36,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
         assemblyGuidance: TemplateAssemblyGuidance? = nil,
         prompts: [ShotPrompt] = [],
         clips: [FilmClip] = [],
+        clipOrder: [UUID] = [],
         pacingStyle: PacingStyle = .rhythmic,
         editStyle: EditStyle = .standard,
         useAmbientSoundtrack: Bool = false,
@@ -57,6 +59,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
         self.assemblyGuidance = assemblyGuidance
         self.prompts = prompts
         self.clips = clips
+        self.clipOrder = clipOrder
         self.pacingStyle = pacingStyle
         self.editStyle = editStyle
         self.useAmbientSoundtrack = useAmbientSoundtrack
@@ -81,6 +84,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
         case assemblyGuidance
         case prompts
         case clips
+        case clipOrder
         case pacingStyle
         case editStyle
         case useAmbientSoundtrack
@@ -106,6 +110,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
         assemblyGuidance = try container.decodeIfPresent(TemplateAssemblyGuidance.self, forKey: .assemblyGuidance)
         prompts = try container.decodeIfPresent([ShotPrompt].self, forKey: .prompts) ?? []
         clips = try container.decodeIfPresent([FilmClip].self, forKey: .clips) ?? []
+        clipOrder = try container.decodeIfPresent([UUID].self, forKey: .clipOrder) ?? []
         pacingStyle = try container.decodeIfPresent(PacingStyle.self, forKey: .pacingStyle) ?? .rhythmic
         editStyle = try container.decodeIfPresent(EditStyle.self, forKey: .editStyle) ?? .standard
         useAmbientSoundtrack = try container.decodeIfPresent(Bool.self, forKey: .useAmbientSoundtrack) ?? false
@@ -132,9 +137,16 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
         }
 
         if let clipIndex = clips.firstIndex(where: { $0.promptId == clip.promptId }) {
+            let replacedId = clips[clipIndex].id
             clips[clipIndex] = clip
+            if let orderIndex = clipOrder.firstIndex(of: replacedId) {
+                clipOrder[orderIndex] = clip.id
+            }
         } else {
             clips.append(clip)
+            if !clipOrder.isEmpty {
+                clipOrder.append(clip.id)
+            }
         }
 
         prompts[promptIndex].isCompleted = true
@@ -144,6 +156,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
 
     mutating func removeClip(_ clip: FilmClip) {
         clips.removeAll { $0.id == clip.id }
+        clipOrder.removeAll { $0 == clip.id }
 
         if clips.contains(where: { $0.promptId == clip.promptId }) {
             return
@@ -175,6 +188,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
             assemblyGuidance: assemblyGuidance,
             prompts: prompts,
             clips: clips,
+            clipOrder: clipOrder,
             pacingStyle: pacingStyle,
             editStyle: editStyle,
             useAmbientSoundtrack: useAmbientSoundtrack,
@@ -188,6 +202,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
     }
 
     private mutating func sortClipsByPromptOrder() {
+        guard clipOrder.isEmpty else { return }
         clips = clipsInPromptOrder
     }
 
@@ -204,5 +219,29 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
 
             return lhsPosition < rhsPosition
         }
+    }
+
+    var clipsInEditOrder: [FilmClip] {
+        guard !clipOrder.isEmpty else { return clipsInPromptOrder }
+        let positions = Dictionary(
+            clipOrder.enumerated().map { ($0.element, $0.offset) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        return clips.sorted { lhs, rhs in
+            let lhsPosition = positions[lhs.id] ?? Int.max
+            let rhsPosition = positions[rhs.id] ?? Int.max
+            if lhsPosition == rhsPosition {
+                return lhs.createdAt < rhs.createdAt
+            }
+            return lhsPosition < rhsPosition
+        }
+    }
+
+    mutating func setClipOrder(_ orderedClipIds: [UUID]) {
+        let currentIds = Set(clips.map(\.id))
+        var seenIds = Set<UUID>()
+        let requestedIds = orderedClipIds.filter { currentIds.contains($0) && seenIds.insert($0).inserted }
+        let missingIds = clipsInPromptOrder.map(\.id).filter { !requestedIds.contains($0) }
+        clipOrder = requestedIds + missingIds
     }
 }

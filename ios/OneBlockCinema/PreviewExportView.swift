@@ -16,8 +16,8 @@ struct PreviewExportView: View {
 
     private var previewIdentity: String {
         guard let session else { return "no-session" }
-        let clips = session.clipsInPromptOrder.map {
-            "\($0.id.uuidString):\($0.duration):\($0.mediaStatus.rawValue)"
+        let clips = session.clipsInEditOrder.map {
+            "\($0.id.uuidString):\($0.duration):\($0.effectiveTrimStart):\($0.effectiveTrimEnd):\($0.mediaStatus.rawValue)"
         }.joined(separator: "|")
         return "\(session.id.uuidString):\(session.aspectRatio?.rawValue ?? "16:9"):\(session.pacingStyle.rawValue):\(session.editStyle.rawValue):\(clips)"
     }

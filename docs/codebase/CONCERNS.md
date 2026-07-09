@@ -6,7 +6,7 @@
 - Generated app is not production complete.
 - Camera capture compiles with permission recovery and import fallback, but physical-device rotation, interruption, thermal, focus, stabilization, and audio QA remain outstanding.
 - Preview and export now share one render plan, but representative-device and HDR/variable-frame-rate fixture QA remain outstanding.
-- Edit styles, transitions, title cards, trimming, and reorder UX need validation.
+- Durable trim/reorder now feeds preview and export, but needs physical-device accessibility and representative-media validation; edit styles, transitions, and title cards remain incomplete.
 - Ten templates now load from a versioned bundled catalog; editorial, device, and accessibility QA remain incomplete.
 
 ## Architecture risks
@@ -24,9 +24,8 @@
 
 ## Suggested first issues
 
-1. Add unit tests for prompt generation and session lifecycle.
-2. Run camera/import prompt attachment on the oldest supported iPhone and representative modern devices.
-3. Verify all 10 templates end-to-end with representative media and device accessibility QA.
-4. Add deterministic camera interruption and low-storage recovery tests.
-5. Replace placeholder preview/export UX with verified behavior.
-6. Connect native auth and project sync only after disposable-environment RLS tests pass.
+1. Run camera/import prompt attachment on the oldest supported iPhone and representative modern devices.
+2. Verify all 10 templates end-to-end with representative media and device accessibility QA.
+3. Add deterministic camera interruption and low-storage recovery tests.
+4. Exercise trim/order persistence and render output with mixed-orientation, HDR, variable-frame-rate, silent, and corrupt fixtures.
+5. Connect native auth and project sync only after disposable-environment RLS tests pass.

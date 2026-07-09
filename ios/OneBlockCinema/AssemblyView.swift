@@ -49,7 +49,7 @@ struct AssemblyView: View {
                     .font(.system(.headline, design: .serif))
                     .foregroundStyle(CinemaColors.warmWhite)
 
-                Text("Clips play in the original shot-prompt order. Reordering, trimming, and transitions are not available yet.")
+                Text("Use the arrow controls to set the playback order. Open a clip to choose its in and out points.")
                     .font(.caption)
                     .foregroundStyle(CinemaColors.dimText)
             }
@@ -67,21 +67,20 @@ struct AssemblyView: View {
                     message: "Capture or import clips from the shot prompts, then return here to review the assembly order."
                 )
             } else if let session {
-                ForEach(session.prompts.sorted { $0.index < $1.index }) { prompt in
-                    let promptClips = session.clipsInPromptOrder.filter { $0.promptId == prompt.id }
-                    if promptClips.isEmpty {
-                        timelineRow(prompt: prompt, clip: nil)
-                    } else {
-                        ForEach(promptClips) { clip in
-                            timelineRow(prompt: prompt, clip: clip)
-                        }
-                    }
+                let orderedClips = session.clipsInEditOrder
+                ForEach(Array(orderedClips.enumerated()), id: \.element.id) { position, clip in
+                    timelineRow(
+                        prompt: session.prompts.first { $0.id == clip.promptId },
+                        clip: clip,
+                        position: position,
+                        clipCount: orderedClips.count
+                    )
                 }
 
-                ForEach(session.clipsInPromptOrder.filter { clip in
-                    !session.prompts.contains { $0.id == clip.promptId }
-                }) { clip in
-                    timelineRow(prompt: nil, clip: clip)
+                ForEach(session.prompts.sorted { $0.index < $1.index }.filter { prompt in
+                    !session.clips.contains { $0.promptId == prompt.id }
+                }) { prompt in
+                    timelineRow(prompt: prompt, clip: nil, position: nil, clipCount: orderedClips.count)
                 }
             }
         }
@@ -105,7 +104,7 @@ struct AssemblyView: View {
     }
 
     @ViewBuilder
-    private func timelineRow(prompt: ShotPrompt?, clip: FilmClip?) -> some View {
+    private func timelineRow(prompt: ShotPrompt?, clip: FilmClip?, position: Int?, clipCount: Int) -> some View {
         let content = HStack(spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8)
@@ -134,11 +133,9 @@ struct AssemblyView: View {
 
             Spacer()
 
-            if clip != nil {
-                Image(systemName: "chevron.right")
-                    .font(.caption2)
-                    .foregroundStyle(CinemaColors.surfaceLight)
-            }
+            Image(systemName: clip == nil ? "circle.dashed" : "slider.horizontal.3")
+                .font(.caption)
+                .foregroundStyle(CinemaColors.surfaceLight)
         }
         .padding(12)
         .background(CinemaColors.surface)
@@ -149,12 +146,38 @@ struct AssemblyView: View {
         )
 
         if let clip {
-            Button {
-                selectedClip = clip
-            } label: {
-                content
+            HStack(spacing: 8) {
+                Button {
+                    selectedClip = clip
+                } label: {
+                    content
+                }
+                .buttonStyle(.plain)
+
+                if let position {
+                    VStack(spacing: 4) {
+                        Button {
+                            viewModel.moveClip(clip, by: -1)
+                        } label: {
+                            Image(systemName: "chevron.up")
+                                .frame(width: 36, height: 32)
+                        }
+                        .disabled(position == 0)
+                        .accessibilityLabel("Move clip earlier")
+
+                        Button {
+                            viewModel.moveClip(clip, by: 1)
+                        } label: {
+                            Image(systemName: "chevron.down")
+                                .frame(width: 36, height: 32)
+                        }
+                        .disabled(position == clipCount - 1)
+                        .accessibilityLabel("Move clip later")
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(theme.accentColor)
+                }
             }
-            .buttonStyle(.plain)
         } else {
             content
         }
@@ -162,7 +185,9 @@ struct AssemblyView: View {
 
     private func clipStatusText(_ clip: FilmClip?) -> String {
         guard let clip else { return "Missing clip — this shot will be skipped." }
-        return clip.duration > 0 ? String(format: "Clip ready · %.1fs", clip.duration) : "Clip ready · imported duration unavailable"
+        return clip.duration > 0
+            ? String(format: "Using %.1fs of %.1fs", clip.trimmedDuration, clip.duration)
+            : "Clip ready · imported duration unavailable"
     }
 
     private var limitationsSection: some View {
@@ -171,9 +196,9 @@ struct AssemblyView: View {
                 .font(.system(.headline, design: .serif))
                 .foregroundStyle(CinemaColors.warmWhite)
 
-            capabilityRow(icon: "checkmark.circle.fill", text: "Plays captured clips in shot-prompt order")
+            capabilityRow(icon: "checkmark.circle.fill", text: "Uses your saved clip order and non-destructive trim points")
             capabilityRow(icon: "checkmark.circle.fill", text: "Skips prompts that do not have clips yet")
-            capabilityRow(icon: "lock.fill", text: "Trim, reorder, transitions, title cards, and soundtrack controls are not built yet")
+            capabilityRow(icon: "lock.fill", text: "Transitions, title cards, and soundtrack controls are not built yet")
         }
         .padding(14)
         .background(CinemaColors.surface.opacity(0.8))
@@ -219,10 +244,14 @@ struct ClipDetailSheet: View {
     let clip: FilmClip
     @Bindable var viewModel: FilmSessionViewModel
     @Environment(\.dismiss) private var dismiss
+    @State private var trimStart: TimeInterval
+    @State private var trimEnd: TimeInterval
 
     init(clip: FilmClip, viewModel: FilmSessionViewModel) {
         self.clip = clip
         self.viewModel = viewModel
+        _trimStart = State(initialValue: clip.effectiveTrimStart)
+        _trimEnd = State(initialValue: clip.effectiveTrimEnd)
     }
 
     var body: some View {
@@ -230,13 +259,43 @@ struct ClipDetailSheet: View {
             Form {
                 Section {
                     if clip.duration > 0 {
-                        LabeledContent("Duration", value: String(format: "%.1f seconds", clip.duration))
+                        LabeledContent("Source duration", value: formattedTime(clip.duration))
+                        LabeledContent("Selected duration", value: formattedTime(max(0, trimEnd - trimStart)))
                     }
                     LabeledContent("Created", value: clip.createdAt.formatted(date: .abbreviated, time: .shortened))
                 }
 
                 Section("Editing") {
-                    Text("Trim, reorder, transitions, title cards, and soundtrack controls are not available in this MVP slice.")
+                    if clip.duration >= 0.2 {
+                        VStack(alignment: .leading) {
+                            LabeledContent("Starts at", value: formattedTime(trimStart))
+                            Slider(
+                                value: $trimStart,
+                                in: 0...max(0, trimEnd - 0.1)
+                            )
+                            .accessibilityLabel("Clip start time")
+                        }
+
+                        VStack(alignment: .leading) {
+                            LabeledContent("Ends at", value: formattedTime(trimEnd))
+                            Slider(
+                                value: $trimEnd,
+                                in: min(clip.duration, trimStart + 0.1)...clip.duration
+                            )
+                            .accessibilityLabel("Clip end time")
+                        }
+
+                        Button("Use Full Clip") {
+                            trimStart = 0
+                            trimEnd = clip.duration
+                        }
+                    } else {
+                        Text("This clip is too short to trim safely.")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Text("Trimming is non-destructive; the original clip stays unchanged.")
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
@@ -251,11 +310,18 @@ struct ClipDetailSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button("Save") {
+                        viewModel.updateClipTrim(id: clip.id, start: trimStart, end: trimEnd)
+                        dismiss()
+                    }
                 }
             }
         }
         .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
+    }
+
+    private func formattedTime(_ time: TimeInterval) -> String {
+        String(format: "%.1f seconds", time)
     }
 }

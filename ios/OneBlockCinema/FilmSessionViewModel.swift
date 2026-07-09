@@ -175,8 +175,38 @@ class FilmSessionViewModel {
     }
 
     func reorderClips(from source: IndexSet, to destination: Int) {
+        guard var session = activeSession else { return }
+        var orderedClips = session.clipsInEditOrder
+        orderedClips.move(fromOffsets: source, toOffset: destination)
         resetExportState()
-        activeSession?.clips.move(fromOffsets: source, toOffset: destination)
+        session.setClipOrder(orderedClips.map(\.id))
+        activeSession = session
+        saveCurrentSession()
+    }
+
+    func moveClip(_ clip: FilmClip, by offset: Int) {
+        guard var session = activeSession else { return }
+        var orderedClips = session.clipsInEditOrder
+        guard let source = orderedClips.firstIndex(where: { $0.id == clip.id }) else { return }
+        let destination = source + offset
+        guard orderedClips.indices.contains(destination) else { return }
+        orderedClips.swapAt(source, destination)
+        resetExportState()
+        session.setClipOrder(orderedClips.map(\.id))
+        activeSession = session
+        saveCurrentSession()
+    }
+
+    func updateClipTrim(id: UUID, start: TimeInterval, end: TimeInterval) {
+        guard let index = activeSession?.clips.firstIndex(where: { $0.id == id }),
+              let duration = activeSession?.clips[index].duration,
+              duration > 0 else { return }
+        let minimumDuration = min(0.1, duration)
+        let clampedStart = min(max(start, 0), max(0, duration - minimumDuration))
+        let clampedEnd = min(max(end, clampedStart + minimumDuration), duration)
+        resetExportState()
+        activeSession?.clips[index].trimStart = clampedStart
+        activeSession?.clips[index].trimEnd = clampedEnd >= duration ? nil : clampedEnd
         saveCurrentSession()
     }
 

@@ -16,6 +16,8 @@ nonisolated struct FilmClip: Identifiable, Codable, Sendable, Hashable {
     var showTitle: Bool
     var titleText: String
     var mediaStatus: ClipMediaStatus
+    var trimStart: TimeInterval
+    var trimEnd: TimeInterval?
 
     init(
         id: UUID = UUID(),
@@ -26,7 +28,9 @@ nonisolated struct FilmClip: Identifiable, Codable, Sendable, Hashable {
         createdAt: Date = Date(),
         showTitle: Bool = true,
         titleText: String = "",
-        mediaStatus: ClipMediaStatus = .available
+        mediaStatus: ClipMediaStatus = .available,
+        trimStart: TimeInterval = 0,
+        trimEnd: TimeInterval? = nil
     ) {
         self.id = id
         self.promptId = promptId
@@ -37,10 +41,24 @@ nonisolated struct FilmClip: Identifiable, Codable, Sendable, Hashable {
         self.showTitle = showTitle
         self.titleText = titleText
         self.mediaStatus = mediaStatus
+        self.trimStart = trimStart
+        self.trimEnd = trimEnd
     }
 
     var isMediaAvailable: Bool {
         mediaStatus == .available
+    }
+
+    var effectiveTrimStart: TimeInterval {
+        min(max(trimStart, 0), max(duration, 0))
+    }
+
+    var effectiveTrimEnd: TimeInterval {
+        min(max(trimEnd ?? duration, effectiveTrimStart), max(duration, 0))
+    }
+
+    var trimmedDuration: TimeInterval {
+        max(0, effectiveTrimEnd - effectiveTrimStart)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -53,6 +71,8 @@ nonisolated struct FilmClip: Identifiable, Codable, Sendable, Hashable {
         case showTitle
         case titleText
         case mediaStatus
+        case trimStart
+        case trimEnd
     }
 
     init(from decoder: Decoder) throws {
@@ -66,5 +86,7 @@ nonisolated struct FilmClip: Identifiable, Codable, Sendable, Hashable {
         showTitle = try container.decodeIfPresent(Bool.self, forKey: .showTitle) ?? true
         titleText = try container.decodeIfPresent(String.self, forKey: .titleText) ?? ""
         mediaStatus = try container.decodeIfPresent(ClipMediaStatus.self, forKey: .mediaStatus) ?? .available
+        trimStart = try container.decodeIfPresent(TimeInterval.self, forKey: .trimStart) ?? 0
+        trimEnd = try container.decodeIfPresent(TimeInterval.self, forKey: .trimEnd)
     }
 }

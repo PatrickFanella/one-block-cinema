@@ -14,6 +14,7 @@ Current implementation truth:
 - 10 guided launch templates and step-by-step prompts
 - AVFoundation 1080p camera recording plus equal Photos-library import, prompt overlays, focus/exposure, torch, zoom, stabilization, microphone control, and retake review
 - GRDB-backed local projects, relative media paths, recovery records, and a durable sync outbox
+- durable, non-destructive clip trim points and user-controlled assembly order
 - real AVPlayer preview and cancellable, orientation-normalized 1080p-class MP4 export from one render plan
 - credential-free Fastify/pg-boss, Supabase RLS migration, and admin moderation-console foundations; external services remain disabled
 - Linux `make verify` checks docs, templates, migrations, TypeScript, contracts, and secrets; Xcode execution needs macOS

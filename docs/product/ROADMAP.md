@@ -21,10 +21,10 @@ Remaining gates:
 Implemented foundation:
 
 - AVFoundation 1080p camera recording, front/rear cameras, tap focus/exposure, torch, bounded zoom, automatic stabilization, microphone control, prompt/aspect overlays, rotation, a 180-second recording cap, retake review, Settings recovery, and equal Photos import.
+- Non-destructive in/out trim points and user-controlled clip order persist in GRDB and drive the shared preview/export render plan.
 
 Remaining:
 
-- Non-destructive trim and user-controlled reorder.
 - Straight cuts/crossfades, title/intertitle cards, standard/silent-film looks, voiceover, ambient beds, and per-track volume.
 - VoiceOver, Dynamic Type, reduced-motion, contrast, keyboard, localization, and oldest-device audits.
 

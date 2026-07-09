@@ -414,6 +414,10 @@ actor SessionStorage {
         migrator.registerMigration("add-outbox-error-v2") { db in
             try db.execute(sql: "ALTER TABLE sync_outbox ADD COLUMN last_error TEXT")
         }
+        migrator.registerMigration("add-clip-editing-v3") { db in
+            try db.execute(sql: "ALTER TABLE clips ADD COLUMN trim_start DOUBLE NOT NULL DEFAULT 0")
+            try db.execute(sql: "ALTER TABLE clips ADD COLUMN trim_end DOUBLE")
+        }
         return migrator
     }()
 
@@ -458,8 +462,8 @@ actor SessionStorage {
                         INSERT INTO clips (
                             id, session_id, prompt_id, path, path_kind,
                             thumbnail_path, thumbnail_path_kind, duration, created_at,
-                            show_title, title_text, media_status
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            show_title, title_text, media_status, trim_start, trim_end
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                     arguments: [
                         clip.id.uuidString,
@@ -474,6 +478,8 @@ actor SessionStorage {
                         clip.showTitle,
                         clip.titleText,
                         clip.mediaStatus.rawValue,
+                        clip.trimStart,
+                        clip.trimEnd,
                     ]
                 )
             }
@@ -522,7 +528,9 @@ actor SessionStorage {
                 createdAt: Date(timeIntervalSince1970: createdAt),
                 showTitle: row["show_title"],
                 titleText: row["title_text"],
-                mediaStatus: status
+                mediaStatus: status,
+                trimStart: row["trim_start"],
+                trimEnd: row["trim_end"]
             )
         }
     }
@@ -601,6 +609,7 @@ private nonisolated struct StoredSessionMetadata: Codable, Sendable {
     let durationTarget: TemplateDurationTarget?
     let assemblyGuidance: TemplateAssemblyGuidance?
     let prompts: [ShotPrompt]
+    let clipOrder: [UUID]?
     let pacingStyle: PacingStyle
     let editStyle: EditStyle
     let useAmbientSoundtrack: Bool
@@ -623,6 +632,7 @@ private nonisolated struct StoredSessionMetadata: Codable, Sendable {
         durationTarget = session.durationTarget
         assemblyGuidance = session.assemblyGuidance
         prompts = session.prompts
+        clipOrder = session.clipOrder
         pacingStyle = session.pacingStyle
         editStyle = session.editStyle
         useAmbientSoundtrack = session.useAmbientSoundtrack
@@ -648,6 +658,7 @@ private nonisolated struct StoredSessionMetadata: Codable, Sendable {
             assemblyGuidance: assemblyGuidance,
             prompts: prompts,
             clips: clips,
+            clipOrder: clipOrder ?? [],
             pacingStyle: pacingStyle,
             editStyle: editStyle,
             useAmbientSoundtrack: useAmbientSoundtrack,

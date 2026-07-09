@@ -49,7 +49,7 @@ nonisolated enum VideoExportLimits {
     static func plan(for project: FilmProject, maxDuration: TimeInterval = maximumDuration) -> RenderPlan {
         buildPlan(
             projectId: project.id,
-            clips: project.clipsInPromptOrder,
+            clips: project.clipsInEditOrder,
             aspectRatio: project.aspectRatio ?? .horizontal,
             pacingStyle: project.pacingStyle,
             editStyle: project.editStyle,
@@ -95,14 +95,14 @@ nonisolated enum VideoExportLimits {
         var trimmed = false
 
         for clip in clips where clip.isMediaAvailable {
-            guard clip.duration > 0 else { continue }
+            guard clip.trimmedDuration > 0 else { continue }
 
-            let duration = min(clip.duration, remainingDuration)
+            let duration = min(clip.trimmedDuration, remainingDuration)
             if duration > 0 {
                 segments.append(
                     RenderSegment(
                         clip: clip,
-                        sourceStart: 0,
+                        sourceStart: clip.effectiveTrimStart,
                         duration: duration,
                         timelineStart: timelineStart
                     )
@@ -111,7 +111,7 @@ nonisolated enum VideoExportLimits {
                 timelineStart += duration
             }
 
-            if duration < clip.duration {
+            if duration < clip.trimmedDuration {
                 trimmed = true
             }
             if remainingDuration <= 0 {

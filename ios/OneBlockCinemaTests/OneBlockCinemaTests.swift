@@ -195,6 +195,40 @@ struct OneBlockCinemaTests {
         #expect(!loadedClip.isMediaAvailable)
     }
 
+    @Test func persistsClipOrderAndTrimDecisions() async throws {
+        let (storage, _, _) = makeStorage()
+        let sourceURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("source-\(UUID().uuidString).mov")
+        try Data("fixture-video".utf8).write(to: sourceURL)
+        defer { try? FileManager.default.removeItem(at: sourceURL) }
+
+        let firstPrompt = ShotPrompt(index: 0, direction: "First", hint: "", icon: "film")
+        let secondPrompt = ShotPrompt(index: 1, direction: "Second", hint: "", icon: "film")
+        let sessionId = UUID()
+        let firstURL = try await storage.copyClip(sourceURL, for: sessionId)
+        let secondURL = try await storage.copyClip(sourceURL, for: sessionId)
+        var firstClip = FilmClip(promptId: firstPrompt.id, fileURL: firstURL, duration: 8)
+        firstClip.trimStart = 1.5
+        firstClip.trimEnd = 6
+        let secondClip = FilmClip(promptId: secondPrompt.id, fileURL: secondURL, duration: 4)
+        var session = FilmSession(
+            id: sessionId,
+            theme: .documentary,
+            prompts: [firstPrompt, secondPrompt],
+            clips: [firstClip, secondClip]
+        )
+        session.setClipOrder([secondClip.id, firstClip.id])
+
+        try await storage.saveSessions([session])
+        let loaded = try #require(try await storage.loadSessions().first)
+        let loadedFirstClip = try #require(loaded.clips.first { $0.id == firstClip.id })
+
+        #expect(loaded.clipsInEditOrder.map(\.id) == [secondClip.id, firstClip.id])
+        #expect(loadedFirstClip.effectiveTrimStart == 1.5)
+        #expect(loadedFirstClip.effectiveTrimEnd == 6)
+        #expect(loadedFirstClip.trimmedDuration == 4.5)
+    }
+
     @Test func migratesLegacyUserDefaultsOnlyOnce() async throws {
         let (storage, userDefaults, _) = makeStorage()
         let legacy = FilmSession(theme: .romance, title: "Legacy draft")
@@ -373,6 +407,26 @@ struct OneBlockCinemaTests {
         #expect(plan.segments.map(\.timelineStart) == [0, 4])
         #expect(plan.segments.map(\.duration) == [4, 6])
         #expect(plan.totalDuration == 10)
+    }
+
+    @Test func projectRenderPlanUsesSavedOrderAndTrimPoints() {
+        var first = makeClip(1, duration: 10)
+        first.trimStart = 2
+        first.trimEnd = 7.5
+        let second = makeClip(2, duration: 3)
+        let project = FilmSession(
+            theme: .documentary,
+            clips: [first, second],
+            clipOrder: [second.id, first.id]
+        )
+
+        let plan = VideoExportLimits.plan(for: project)
+
+        #expect(plan.segments.map(\.clip.id) == [second.id, first.id])
+        #expect(plan.segments.map(\.sourceStart) == [0, 2])
+        #expect(plan.segments.map(\.duration) == [3, 5.5])
+        #expect(plan.segments.map(\.timelineStart) == [0, 3])
+        #expect(plan.totalDuration == 8.5)
     }
 
     @Test func renderPlanSkipsExplicitlyMissingMedia() {
