@@ -26,11 +26,12 @@ Implemented foundation:
 - Non-destructive in/out trim points and user-controlled clip order persist in GRDB and drive the shared preview/export render plan.
 - Straight cuts and pacing-aware crossfades, clip title overlays, per-clip source-audio levels, and selectable standard/silent-film looks render identically in preview and export.
 - Local voiceover recording/import, user-provided ambient beds, per-track volume, ambient looping, and silent-look muting persist with relative paths and feed the shared preview/export mix.
+- Standalone intertitle cards can be placed between clips, persist non-destructively, render as full-screen timeline items, and count toward the 180-second cap.
 - Reduced-motion/transparency behavior, scalable template/shot layouts, action-oriented VoiceOver labels and values, 44-point shot navigation targets, keyboard dismissal, and accessibility-size UI smoke coverage.
 
 Remaining:
 
-- Standalone title/intertitle cards and physical-device audio-mix/voiceover QA.
+- Physical-device intertitle, audio-mix, and voiceover QA.
 - Physical-device VoiceOver, contrast, Voice Control, Full Keyboard Access, pseudolocalization/right-to-left, and oldest-device audits.
 
 ## 1.0 Creator launch — accounts and sync

@@ -38,6 +38,13 @@ nonisolated struct RenderTitleCue: Sendable, Equatable {
     let duration: TimeInterval
 }
 
+nonisolated struct RenderIntertitleCue: Sendable, Equatable {
+    let id: UUID
+    let text: String
+    let timelineStart: TimeInterval
+    let duration: TimeInterval
+}
+
 nonisolated struct RenderPlan: Sendable, Equatable {
     let projectId: UUID?
     let aspectRatio: TemplateAspectRatio
@@ -45,6 +52,7 @@ nonisolated struct RenderPlan: Sendable, Equatable {
     let segments: [RenderSegment]
     let audioTracks: [ProjectAudioTrack]
     let titleCues: [RenderTitleCue]
+    let intertitleCues: [RenderIntertitleCue]
     let totalDuration: TimeInterval
     let wasTrimmedToMaximumDuration: Bool
     let pacingStyle: PacingStyle
@@ -62,6 +70,7 @@ nonisolated enum VideoExportLimits {
             projectId: project.id,
             clips: project.clipsInEditOrder,
             audioTracks: project.audioTracks,
+            intertitles: project.intertitles,
             aspectRatio: project.aspectRatio ?? .horizontal,
             pacingStyle: project.pacingStyle,
             editStyle: project.editStyle,
@@ -74,6 +83,7 @@ nonisolated enum VideoExportLimits {
             projectId: nil,
             clips: clips,
             audioTracks: [],
+            intertitles: [],
             aspectRatio: .horizontal,
             pacingStyle: .rhythmic,
             editStyle: .standard,
@@ -85,6 +95,7 @@ nonisolated enum VideoExportLimits {
         projectId: UUID?,
         clips: [FilmClip],
         audioTracks: [ProjectAudioTrack],
+        intertitles: [IntertitleCard],
         aspectRatio: TemplateAspectRatio,
         pacingStyle: PacingStyle,
         editStyle: EditStyle,
@@ -98,22 +109,55 @@ nonisolated enum VideoExportLimits {
                 segments: [],
                 audioTracks: audioTracks,
                 titleCues: [],
+                intertitleCues: [],
                 totalDuration: 0,
-                wasTrimmedToMaximumDuration: !clips.isEmpty,
+                wasTrimmedToMaximumDuration: !clips.isEmpty || !intertitles.isEmpty,
                 pacingStyle: pacingStyle,
                 editStyle: editStyle
             )
         }
 
-        let exportableClips = clips.filter { $0.isMediaAvailable && $0.trimmedDuration > 0 }
         var timelineEnd: TimeInterval = 0
         var segments: [RenderSegment] = []
+        var intertitleCues: [RenderIntertitleCue] = []
         var trimmed = false
+        var previousItemWasClip = false
+        let cardsByPosition = Dictionary(grouping: intertitles) { card in
+            min(max(card.position, 0), clips.count)
+        }
 
-        for (index, clip) in exportableClips.enumerated() {
+        for position in 0...clips.count {
+            for card in cardsByPosition[position, default: []] {
+                let duration = min(card.duration, max(0, maxDuration - timelineEnd))
+                guard duration > 0 else {
+                    trimmed = true
+                    break
+                }
+                intertitleCues.append(
+                    RenderIntertitleCue(
+                        id: card.id,
+                        text: String(card.text.prefix(120)),
+                        timelineStart: timelineEnd,
+                        duration: duration
+                    )
+                )
+                timelineEnd += duration
+                previousItemWasClip = false
+                if duration < card.duration || timelineEnd >= maxDuration {
+                    trimmed = true
+                    break
+                }
+            }
+            if timelineEnd >= maxDuration { break }
+            guard clips.indices.contains(position) else { continue }
+            let clip = clips[position]
+            guard clip.isMediaAvailable, clip.trimmedDuration > 0 else {
+                previousItemWasClip = false
+                continue
+            }
             let fullDuration = clip.trimmedDuration
             let previousDuration = segments.last?.duration ?? 0
-            let requestedTransition = clip.transitionStyle == .crossfade && !segments.isEmpty
+            let requestedTransition = clip.transitionStyle == .crossfade && previousItemWasClip
                 ? pacingStyle.transitionDuration
                 : 0
             var transitionDuration = min(requestedTransition, previousDuration / 2, fullDuration / 2)
@@ -138,12 +182,13 @@ nonisolated enum VideoExportLimits {
                 )
             )
             timelineEnd = timelineStart + duration
+            previousItemWasClip = true
 
             if duration < fullDuration {
                 trimmed = true
             }
             if timelineEnd >= maxDuration {
-                trimmed = trimmed || index < exportableClips.count - 1
+                trimmed = trimmed || position < clips.count - 1 || cardsByPosition[position + 1] != nil
                 break
             }
         }
@@ -166,6 +211,7 @@ nonisolated enum VideoExportLimits {
             segments: segments,
             audioTracks: audioTracks,
             titleCues: titleCues,
+            intertitleCues: intertitleCues,
             totalDuration: timelineEnd,
             wasTrimmedToMaximumDuration: trimmed,
             pacingStyle: pacingStyle,
@@ -299,6 +345,7 @@ nonisolated enum RenderCompositionBuilder {
         guard insertedSegments.count == plan.segments.count else {
             throw ExportError.incompleteExport
         }
+        extendVideoTracks(videoTracks, to: plan.totalDuration)
         try await insertProjectAudio(
             plan.audioTracks,
             into: composition,
@@ -306,7 +353,10 @@ nonisolated enum RenderCompositionBuilder {
             timelineDuration: plan.totalDuration,
             muted: plan.editStyle == .silentFilm
         )
-        var instructions = makeVideoInstructions(for: insertedSegments)
+        var instructions = makeVideoInstructions(
+            for: insertedSegments,
+            intertitles: plan.intertitleCues
+        )
         instructions.sort { CMTimeCompare($0.timeRange.start, $1.timeRange.start) < 0 }
         guard !instructions.isEmpty else { throw ExportError.incompleteExport }
         videoComposition.instructions = instructions
@@ -320,6 +370,20 @@ nonisolated enum RenderCompositionBuilder {
             audioMix = mix
         }
         return PreparedRender(composition: composition, videoComposition: videoComposition, audioMix: audioMix)
+    }
+
+    private static func extendVideoTracks(
+        _ tracks: [AVMutableCompositionTrack],
+        to duration: TimeInterval
+    ) {
+        let desiredEnd = CMTime(seconds: duration, preferredTimescale: 600)
+        for track in tracks {
+            let currentEnd = track.timeRange.end
+            guard CMTimeCompare(currentEnd, desiredEnd) < 0 else { continue }
+            track.insertEmptyTimeRange(
+                CMTimeRange(start: currentEnd, duration: CMTimeSubtract(desiredEnd, currentEnd))
+            )
+        }
     }
 
     private static func insertProjectAudio(
@@ -369,7 +433,8 @@ nonisolated enum RenderCompositionBuilder {
     }
 
     private static func makeVideoInstructions(
-        for insertedSegments: [InsertedVideoSegment]
+        for insertedSegments: [InsertedVideoSegment],
+        intertitles: [RenderIntertitleCue]
     ) -> [AVMutableVideoCompositionInstruction] {
         var instructions: [AVMutableVideoCompositionInstruction] = []
 
@@ -412,6 +477,17 @@ nonisolated enum RenderCompositionBuilder {
             instructions.append(instruction)
         }
 
+        for cue in intertitles {
+            let instruction = AVMutableVideoCompositionInstruction()
+            instruction.timeRange = CMTimeRange(
+                start: CMTime(seconds: cue.timelineStart, preferredTimescale: 600),
+                duration: CMTime(seconds: cue.duration, preferredTimescale: 600)
+            )
+            instruction.backgroundColor = CGColor(gray: 0.02, alpha: 1)
+            instruction.layerInstructions = []
+            instructions.append(instruction)
+        }
+
         return instructions
     }
 
@@ -419,7 +495,9 @@ nonisolated enum RenderCompositionBuilder {
         for plan: RenderPlan,
         videoComposition: AVMutableVideoComposition
     ) {
-        guard plan.editStyle == .silentFilm || !plan.titleCues.isEmpty else { return }
+        guard plan.editStyle == .silentFilm
+            || !plan.titleCues.isEmpty
+            || !plan.intertitleCues.isEmpty else { return }
 
         let frame = CGRect(origin: .zero, size: plan.outputDimensions.size)
         let parentLayer = CALayer()
@@ -464,10 +542,56 @@ nonisolated enum RenderCompositionBuilder {
             parentLayer.addSublayer(titleLayer)
         }
 
+        for cue in plan.intertitleCues {
+            let backgroundLayer = CALayer()
+            backgroundLayer.frame = frame
+            backgroundLayer.backgroundColor = CGColor(gray: 0.02, alpha: 1)
+            backgroundLayer.opacity = 0
+            backgroundLayer.add(
+                intertitleOpacityAnimation(start: cue.timelineStart, duration: cue.duration),
+                forKey: "intertitle-background-\(cue.id.uuidString)"
+            )
+            parentLayer.addSublayer(backgroundLayer)
+
+            let textLayer = CATextLayer()
+            textLayer.string = cue.text
+            textLayer.alignmentMode = .center
+            textLayer.foregroundColor = CGColor(gray: 0.96, alpha: 1)
+            textLayer.contentsScale = 2
+            textLayer.fontSize = max(42, frame.width * 0.065)
+            textLayer.isWrapped = true
+            textLayer.frame = CGRect(
+                x: frame.width * 0.1,
+                y: frame.height * 0.32,
+                width: frame.width * 0.8,
+                height: frame.height * 0.36
+            )
+            textLayer.opacity = 0
+            textLayer.add(
+                intertitleOpacityAnimation(start: cue.timelineStart, duration: cue.duration),
+                forKey: "intertitle-text-\(cue.id.uuidString)"
+            )
+            parentLayer.addSublayer(textLayer)
+        }
+
         videoComposition.animationTool = AVVideoCompositionCoreAnimationTool(
             postProcessingAsVideoLayer: videoLayer,
             in: parentLayer
         )
+    }
+
+    private static func intertitleOpacityAnimation(
+        start: TimeInterval,
+        duration: TimeInterval
+    ) -> CAKeyframeAnimation {
+        let animation = CAKeyframeAnimation(keyPath: "opacity")
+        animation.values = [0, 1, 1, 0]
+        animation.keyTimes = [0, 0.001, 0.999, 1]
+        animation.duration = max(0.1, duration)
+        animation.beginTime = AVCoreAnimationBeginTimeAtZero + start
+        animation.isRemovedOnCompletion = false
+        animation.fillMode = .both
+        return animation
     }
 
     static func normalizedTransform(

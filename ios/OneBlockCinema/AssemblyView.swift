@@ -9,6 +9,8 @@ struct AssemblyView: View {
     @State private var showVoiceoverRecorder = false
     @State private var showAudioImporter = false
     @State private var pendingAudioKind: ProjectAudioTrackKind?
+    @State private var selectedIntertitle: IntertitleCard?
+    @State private var showNewIntertitle = false
 
     private var session: FilmSession? { viewModel.activeSession }
     private var theme: FilmTheme { session?.theme ?? .documentary }
@@ -19,6 +21,7 @@ struct AssemblyView: View {
                 clipsList
 
                 if let session, !session.clips.isEmpty {
+                    intertitleSection
                     lookSection
                     audioSection
                     limitationsSection
@@ -49,6 +52,28 @@ struct AssemblyView: View {
                     _ = await viewModel.attachAudioTrack(from: url, kind: .voiceover)
                     try? FileManager.default.removeItem(at: url)
                 }
+            }
+        }
+        .sheet(item: $selectedIntertitle) { card in
+            IntertitleEditorSheet(
+                card: card,
+                clipCount: session?.clipsInEditOrder.count ?? 0
+            ) { updated in
+                viewModel.updateIntertitle(updated)
+            } onDelete: {
+                viewModel.removeIntertitle(id: card.id)
+            }
+        }
+        .sheet(isPresented: $showNewIntertitle) {
+            IntertitleEditorSheet(
+                card: nil,
+                clipCount: session?.clipsInEditOrder.count ?? 0
+            ) { card in
+                viewModel.addIntertitle(
+                    text: card.text,
+                    duration: card.duration,
+                    position: card.position
+                )
             }
         }
         .fileImporter(
@@ -224,13 +249,79 @@ struct AssemblyView: View {
                 .foregroundStyle(CinemaColors.warmWhite)
 
             capabilityRow(icon: "checkmark.circle.fill", text: "Uses your saved clip order and non-destructive trim points")
-            capabilityRow(icon: "checkmark.circle.fill", text: "Renders cuts/crossfades, clip titles, source levels, voiceover, ambient beds, and the selected look")
+            capabilityRow(icon: "checkmark.circle.fill", text: "Renders cuts/crossfades, titles/intertitles, source levels, voiceover, ambient beds, and the selected look")
             capabilityRow(icon: "checkmark.circle.fill", text: "Skips prompts that do not have clips yet")
-            capabilityRow(icon: "lock.fill", text: "Standalone intertitle cards are not built yet")
         }
         .padding(14)
         .background(CinemaColors.surface.opacity(0.8))
         .clipShape(.rect(cornerRadius: 14))
+    }
+
+    private var intertitleSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Intertitle Cards")
+                        .font(.system(.headline, design: .serif))
+                        .foregroundStyle(CinemaColors.warmWhite)
+                    Text("Add a full-screen text card between clips. Card time counts toward the three-minute limit.")
+                        .font(.caption)
+                        .foregroundStyle(CinemaColors.dimText)
+                }
+                Spacer()
+                Button {
+                    showNewIntertitle = true
+                } label: {
+                    Label("Add Card", systemImage: "plus")
+                }
+                .buttonStyle(.bordered)
+                .tint(CinemaColors.amber)
+            }
+
+            if let intertitles = session?.intertitles, intertitles.isEmpty {
+                Text("No intertitle cards")
+                    .font(.caption)
+                    .foregroundStyle(CinemaColors.dimText)
+            } else if let intertitles = session?.intertitles {
+                ForEach(intertitles) { card in
+                    Button {
+                        selectedIntertitle = card
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "text.rectangle")
+                                .foregroundStyle(CinemaColors.amber)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(card.text)
+                                    .font(.subheadline)
+                                    .foregroundStyle(CinemaColors.warmWhite)
+                                    .lineLimit(2)
+                                Text("\(intertitlePositionLabel(card.position)) · \(formattedAudioDuration(card.duration))")
+                                    .font(.caption2)
+                                    .foregroundStyle(CinemaColors.dimText)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(CinemaColors.dimText)
+                        }
+                        .padding(10)
+                        .background(CinemaColors.surface)
+                        .clipShape(.rect(cornerRadius: 10))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Edits this intertitle card")
+                }
+            }
+        }
+        .padding(14)
+        .background(CinemaColors.surface.opacity(0.8))
+        .clipShape(.rect(cornerRadius: 14))
+    }
+
+    private func intertitlePositionLabel(_ position: Int) -> String {
+        let clipCount = session?.clipsInEditOrder.count ?? 0
+        if position <= 0 { return "Before first clip" }
+        if position >= clipCount { return "After last clip" }
+        return "Between clips \(position) and \(position + 1)"
     }
 
     private var audioSection: some View {

@@ -13,6 +13,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
     var prompts: [ShotPrompt]
     var clips: [FilmClip]
     var audioTracks: [ProjectAudioTrack]
+    var intertitles: [IntertitleCard]
     var clipOrder: [UUID]
     var pacingStyle: PacingStyle
     var editStyle: EditStyle
@@ -38,6 +39,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
         prompts: [ShotPrompt] = [],
         clips: [FilmClip] = [],
         audioTracks: [ProjectAudioTrack] = [],
+        intertitles: [IntertitleCard] = [],
         clipOrder: [UUID] = [],
         pacingStyle: PacingStyle = .rhythmic,
         editStyle: EditStyle = .standard,
@@ -62,6 +64,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
         self.prompts = prompts
         self.clips = clips
         self.audioTracks = audioTracks
+        self.intertitles = intertitles
         self.clipOrder = clipOrder
         self.pacingStyle = pacingStyle
         self.editStyle = editStyle
@@ -88,6 +91,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
         case prompts
         case clips
         case audioTracks
+        case intertitles
         case clipOrder
         case pacingStyle
         case editStyle
@@ -115,6 +119,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
         prompts = try container.decodeIfPresent([ShotPrompt].self, forKey: .prompts) ?? []
         clips = try container.decodeIfPresent([FilmClip].self, forKey: .clips) ?? []
         audioTracks = try container.decodeIfPresent([ProjectAudioTrack].self, forKey: .audioTracks) ?? []
+        intertitles = try container.decodeIfPresent([IntertitleCard].self, forKey: .intertitles) ?? []
         clipOrder = try container.decodeIfPresent([UUID].self, forKey: .clipOrder) ?? []
         pacingStyle = try container.decodeIfPresent(PacingStyle.self, forKey: .pacingStyle) ?? .rhythmic
         editStyle = try container.decodeIfPresent(EditStyle.self, forKey: .editStyle) ?? .standard
@@ -152,6 +157,21 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
     mutating func setAudioTrackVolume(kind: ProjectAudioTrackKind, volume: Double) {
         guard let index = audioTracks.firstIndex(where: { $0.kind == kind }) else { return }
         audioTracks[index].volume = min(max(volume, 0), 1)
+    }
+
+    mutating func addIntertitle(_ card: IntertitleCard) {
+        intertitles.append(card)
+        normalizeIntertitles()
+    }
+
+    mutating func updateIntertitle(_ card: IntertitleCard) {
+        guard let index = intertitles.firstIndex(where: { $0.id == card.id }) else { return }
+        intertitles[index] = card
+        normalizeIntertitles()
+    }
+
+    mutating func removeIntertitle(id: UUID) {
+        intertitles.removeAll { $0.id == id }
     }
 
     mutating func attachClip(_ clip: FilmClip) -> Bool {
@@ -220,6 +240,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
             prompts: prompts,
             clips: clips,
             audioTracks: audioTracks,
+            intertitles: intertitles,
             clipOrder: clipOrder,
             pacingStyle: pacingStyle,
             editStyle: editStyle,
@@ -275,5 +296,24 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
         let requestedIds = orderedClipIds.filter { currentIds.contains($0) && seenIds.insert($0).inserted }
         let missingIds = clipsInPromptOrder.map(\.id).filter { !requestedIds.contains($0) }
         clipOrder = requestedIds + missingIds
+    }
+
+    private mutating func normalizeIntertitles() {
+        let maximumPosition = clips.count
+        intertitles = intertitles
+            .map { card in
+                IntertitleCard(
+                    id: card.id,
+                    text: card.text,
+                    duration: card.duration,
+                    position: min(card.position, maximumPosition)
+                )
+            }
+            .filter { !$0.text.isEmpty }
+            .sorted {
+                $0.position == $1.position
+                    ? $0.id.uuidString < $1.id.uuidString
+                    : $0.position < $1.position
+            }
     }
 }

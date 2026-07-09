@@ -407,6 +407,27 @@ class FilmSessionViewModel {
         saveCurrentSession()
     }
 
+    func addIntertitle(text: String, duration: TimeInterval, position: Int) {
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        resetExportState()
+        activeSession?.addIntertitle(
+            IntertitleCard(text: text, duration: duration, position: position)
+        )
+        saveCurrentSession()
+    }
+
+    func updateIntertitle(_ card: IntertitleCard) {
+        resetExportState()
+        activeSession?.updateIntertitle(card)
+        saveCurrentSession()
+    }
+
+    func removeIntertitle(id: UUID) {
+        resetExportState()
+        activeSession?.removeIntertitle(id: id)
+        saveCurrentSession()
+    }
+
     func exportVideo() async {
         guard let session = activeSession, !session.clips.isEmpty else { return }
         let plan = VideoExportLimits.plan(for: session)

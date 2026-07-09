@@ -666,6 +666,7 @@ private nonisolated struct StoredSessionMetadata: Codable, Sendable {
     let assemblyGuidance: TemplateAssemblyGuidance?
     let prompts: [ShotPrompt]
     let clipOrder: [UUID]?
+    let intertitles: [IntertitleCard]?
     let pacingStyle: PacingStyle
     let editStyle: EditStyle
     let useAmbientSoundtrack: Bool
@@ -689,6 +690,7 @@ private nonisolated struct StoredSessionMetadata: Codable, Sendable {
         assemblyGuidance = session.assemblyGuidance
         prompts = session.prompts
         clipOrder = session.clipOrder
+        intertitles = session.intertitles
         pacingStyle = session.pacingStyle
         editStyle = session.editStyle
         useAmbientSoundtrack = session.useAmbientSoundtrack
@@ -715,6 +717,7 @@ private nonisolated struct StoredSessionMetadata: Codable, Sendable {
             prompts: prompts,
             clips: clips,
             audioTracks: audioTracks,
+            intertitles: intertitles ?? [],
             clipOrder: clipOrder ?? [],
             pacingStyle: pacingStyle,
             editStyle: editStyle,
