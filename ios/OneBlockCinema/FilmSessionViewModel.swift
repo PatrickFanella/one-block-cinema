@@ -1,6 +1,7 @@
-import SwiftUI
 import AVFoundation
 import PhotosUI
+import SwiftUI
+import UIKit
 
 @Observable
 @MainActor
@@ -21,11 +22,15 @@ class FilmSessionViewModel {
     var storageHealth: DraftStorageHealth = .empty
     var storageCleanupMessage: String?
     var isCleaningStorage: Bool = false
+    var interruptedRenders: [InterruptedRender] = []
 
     private let storage: SessionStorage
     private let exportService = VideoExportService()
     private var pendingPersistenceTask: Task<Void, Never>?
     private var activeExportID: UUID?
+    private var backgroundTaskIdentifier: UIBackgroundTaskIdentifier = .invalid
+    private var backgroundTaskExpiredExportID: UUID?
+    private var didRecoverInterruptedRenders = false
 
     init(storage: SessionStorage = SessionStorage()) {
         self.storage = storage
@@ -66,6 +71,18 @@ class FilmSessionViewModel {
             storageHealth = .empty
             errorMessage = "Drafts loaded, but storage recovery could not be checked: \(error.localizedDescription)"
             showError = true
+        }
+
+        if !didRecoverInterruptedRenders {
+            didRecoverInterruptedRenders = true
+            do {
+                interruptedRenders = try await storage.recoverInterruptedRenders()
+            } catch {
+                didRecoverInterruptedRenders = false
+                interruptedRenders = []
+                errorMessage = "Drafts loaded, but interrupted exports could not be checked: \(error.localizedDescription)"
+                showError = true
+            }
         }
     }
 
@@ -137,6 +154,25 @@ class FilmSessionViewModel {
             errorMessage = "Could not clean up unused media: \(error.localizedDescription)"
             showError = true
         }
+    }
+
+    func dismissInterruptedRenders() async {
+        do {
+            try await storage.dismissInterruptedRenders()
+            interruptedRenders = []
+        } catch {
+            errorMessage = "Could not dismiss the export recovery notice: \(error.localizedDescription)"
+            showError = true
+        }
+    }
+
+    func hasInterruptedRender(for projectId: UUID) -> Bool {
+        interruptedRenders.contains { $0.projectId == projectId }
+    }
+
+    func handleScenePhase(_ phase: ScenePhase) {
+        guard phase == .background, isExporting else { return }
+        exportStatusMessage = "Continuing local export in the background…"
     }
 
     func nextPrompt() {
@@ -314,17 +350,32 @@ class FilmSessionViewModel {
             return
         }
 
-        isExporting = true
+        await pendingPersistenceTask?.value
         let exportID = UUID()
+        do {
+            try await storage.beginRender(id: exportID, projectId: session.id)
+            interruptedRenders.removeAll { $0.projectId == session.id }
+        } catch {
+            errorMessage = "Export could not start safely: \(error.localizedDescription)"
+            showError = true
+            return
+        }
+
+        isExporting = true
         activeExportID = exportID
+        beginBackgroundTask(for: exportID)
         exportProgress = 0
         exportedVideoURL = nil
         exportStatusMessage = plan.wasTrimmedToMaximumDuration
             ? "Export will trim at \(Self.formattedDuration(VideoExportLimits.maximumDuration))."
             : "Preparing local export…"
         defer {
+            endBackgroundTask()
             isExporting = false
             activeExportID = nil
+            if backgroundTaskExpiredExportID == exportID {
+                backgroundTaskExpiredExportID = nil
+            }
         }
 
         do {
@@ -338,15 +389,23 @@ class FilmSessionViewModel {
                     }
                 }
             )
+            activeExportID = nil
             exportedVideoURL = url
             exportProgress = 1
             exportStatusMessage = "Export complete. Opening share sheet…"
+            try? await storage.markRenderCompleted(id: exportID)
             completeSession()
             showExportShare = true
         } catch is CancellationError {
             exportProgress = 0
-            exportStatusMessage = "Export cancelled. Your draft is unchanged."
+            if backgroundTaskExpiredExportID == exportID {
+                exportStatusMessage = "Export paused when background time ended. Your draft is safe; export again to retry."
+            } else {
+                try? await storage.markRenderCancelled(id: exportID)
+                exportStatusMessage = "Export cancelled. Your draft is unchanged."
+            }
         } catch {
+            try? await storage.markRenderFailed(id: exportID, reason: String(describing: error))
             errorMessage = error.localizedDescription
             exportStatusMessage = "Export failed."
             showError = true
@@ -425,6 +484,35 @@ class FilmSessionViewModel {
         exportStatusMessage = nil
         exportedVideoURL = nil
         showExportShare = false
+    }
+
+    private func beginBackgroundTask(for exportID: UUID) {
+        guard backgroundTaskIdentifier == .invalid else { return }
+        backgroundTaskIdentifier = UIApplication.shared.beginBackgroundTask(
+            withName: "OneBlockCinemaExport"
+        ) { [weak self] in
+            Task { @MainActor [weak self] in
+                await self?.interruptExportWhenBackgroundTimeExpires(exportID: exportID)
+            }
+        }
+    }
+
+    private func interruptExportWhenBackgroundTimeExpires(exportID: UUID) async {
+        guard activeExportID == exportID, isExporting else {
+            endBackgroundTask()
+            return
+        }
+        backgroundTaskExpiredExportID = exportID
+        exportStatusMessage = "Background time ended. Pausing export safely…"
+        try? await storage.markRenderInterrupted(id: exportID, reason: "background_time_expired")
+        await exportService.cancelCurrentRender()
+        endBackgroundTask()
+    }
+
+    private func endBackgroundTask() {
+        guard backgroundTaskIdentifier != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(backgroundTaskIdentifier)
+        backgroundTaskIdentifier = .invalid
     }
 
     private func videoDuration(for url: URL) async throws -> TimeInterval {

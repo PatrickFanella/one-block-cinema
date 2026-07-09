@@ -298,6 +298,39 @@ struct OneBlockCinemaTests {
         #expect(FileManager.default.fileExists(atPath: freshOrphan.path))
     }
 
+    @Test func unfinishedRenderBecomesRecoverableAfterRelaunch() async throws {
+        let (storage, _, _) = makeStorage()
+        let session = FilmSession(theme: .documentary, title: "Interrupted export")
+        try await storage.saveSessions([session])
+        let renderId = UUID()
+        let startedAt = Date(timeIntervalSince1970: 100)
+        try await storage.beginRender(id: renderId, projectId: session.id, at: startedAt)
+
+        let interrupted = try await storage.recoverInterruptedRenders(at: Date(timeIntervalSince1970: 200))
+        #expect(interrupted.count == 1)
+        #expect(interrupted.first?.id == renderId)
+        #expect(interrupted.first?.projectId == session.id)
+        #expect(interrupted.first?.startedAt == startedAt)
+
+        try await storage.dismissInterruptedRenders(at: Date(timeIntervalSince1970: 300))
+        #expect(try await storage.recoverInterruptedRenders().isEmpty)
+    }
+
+    @Test func completedRetryClearsInterruptedRenderRecovery() async throws {
+        let (storage, _, _) = makeStorage()
+        let session = FilmSession(theme: .documentary, title: "Completed retry")
+        try await storage.saveSessions([session])
+        let firstRenderId = UUID()
+        try await storage.beginRender(id: firstRenderId, projectId: session.id)
+        #expect(try await storage.recoverInterruptedRenders().count == 1)
+
+        let retryId = UUID()
+        try await storage.beginRender(id: retryId, projectId: session.id)
+        try await storage.markRenderCompleted(id: retryId)
+
+        #expect(try await storage.recoverInterruptedRenders().isEmpty)
+    }
+
     @Test func persistsClipOrderAndTrimDecisions() async throws {
         let (storage, _, _) = makeStorage()
         let sourceURL = FileManager.default.temporaryDirectory

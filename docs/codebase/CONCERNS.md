@@ -5,7 +5,7 @@
 - Focused audit: `docs/codebase/GENERATED_APP_AUDIT.md` documents implemented, partial, missing, and overpromised behavior with file references and P0 blockers.
 - Generated app is not production complete.
 - Camera capture compiles with permission recovery and import fallback, but physical-device rotation, interruption, thermal, focus, stabilization, and audio QA remain outstanding.
-- Preview and export now share one render plan, but representative-device and HDR/variable-frame-rate fixture QA remain outstanding.
+- Preview and export now share one render plan with durable interruption checkpoints, but representative-device, background-expiration, and HDR/variable-frame-rate fixture QA remain outstanding.
 - Durable trim/reorder, cuts/crossfades, clip titles/volume, and standard/silent-film looks now feed preview and export, but need physical-device accessibility and representative-media validation; standalone intertitles, voiceover, and ambient beds remain incomplete.
 - Ten templates now load from a versioned bundled catalog; editorial, device, and accessibility QA remain incomplete.
 

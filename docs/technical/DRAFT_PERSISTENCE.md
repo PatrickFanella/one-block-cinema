@@ -16,6 +16,7 @@ Store local drafts safely for offline work without treating private media as syn
 - A storage audit identifies files under the private Drafts tree that are unreferenced and at least 24 hours old. Cleanup never traverses outside that tree and preserves every database-referenced clip and thumbnail.
 - Legacy `sessions.json` and `UserDefaults` payloads are imported idempotently on first database access and are no longer mirrored after migration.
 - The same database contains a durable `sync_outbox`; operations use their UUID as an idempotency key and retain retry state across launches.
+- `local_render_jobs` checkpoints in-progress exports. Relaunch converts unfinished jobs to visible interrupted state; a retry replaces the checkpoint and never changes source clips or edit decisions.
 - Drafts are local-first; sync is future work.
 
 ## Target design
@@ -34,6 +35,7 @@ Store local drafts safely for offline work without treating private media as syn
 4. On resume, load metadata first and validate every referenced media file.
 5. If a media file is missing, retain the clip as a recoverable missing-media record, mark the film in My Films, and route resume to the first affected shot so capture/import can replace it.
 6. Delete removes metadata and session media. User-initiated cleanup removes only stale, unreferenced files after a 24-hour in-flight-import grace period.
+7. Export opens an iOS background execution window and writes a durable render checkpoint. Background expiration cancels the transient render, preserves the draft, and leaves a retry notice; termination is detected on next launch.
 
 ## Migration
 

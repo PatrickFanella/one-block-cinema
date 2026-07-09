@@ -428,6 +428,23 @@ actor SessionStorage {
         migrator.registerMigration("add-clip-transition-v5") { db in
             try db.execute(sql: "ALTER TABLE clips ADD COLUMN transition_style TEXT NOT NULL DEFAULT 'cut'")
         }
+        migrator.registerMigration("add-render-recovery-v6") { db in
+            try db.execute(sql: """
+                CREATE TABLE local_render_jobs (
+                    id TEXT PRIMARY KEY NOT NULL,
+                    session_id TEXT NOT NULL UNIQUE REFERENCES sessions(id) ON DELETE CASCADE,
+                    status TEXT NOT NULL CHECK (
+                        status IN ('rendering', 'completed', 'cancelled', 'failed', 'interrupted', 'dismissed')
+                    ),
+                    started_at DOUBLE NOT NULL,
+                    updated_at DOUBLE NOT NULL,
+                    failure_reason TEXT
+                );
+
+                CREATE INDEX local_render_jobs_status_updated
+                ON local_render_jobs(status, updated_at);
+                """)
+        }
         return migrator
     }()
 

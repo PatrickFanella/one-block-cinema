@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var viewModel = FilmSessionViewModel()
     @State private var selectedTab: AppTab = .create
 
@@ -21,6 +22,9 @@ struct ContentView: View {
         .tint(CinemaColors.amber)
         .task {
             await viewModel.loadSessions()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            viewModel.handleScenePhase(phase)
         }
     }
 }

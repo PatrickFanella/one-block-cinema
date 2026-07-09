@@ -8,7 +8,9 @@ struct MyFilmsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                if viewModel.storageHealth.needsAttention || viewModel.storageCleanupMessage != nil {
+                if viewModel.storageHealth.needsAttention
+                    || viewModel.storageCleanupMessage != nil
+                    || !viewModel.interruptedRenders.isEmpty {
                     storageRecoveryCard
                 }
 
@@ -85,6 +87,18 @@ struct MyFilmsView: View {
                 .disabled(viewModel.isCleaningStorage)
             }
 
+            if !viewModel.interruptedRenders.isEmpty {
+                Text(interruptedRenderSummary)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+
+                Button("Dismiss Export Notice") {
+                    Task { await viewModel.dismissInterruptedRenders() }
+                }
+                .buttonStyle(.bordered)
+                .tint(CinemaColors.amber)
+            }
+
             if let message = viewModel.storageCleanupMessage {
                 Text(message)
                     .font(.caption)
@@ -117,6 +131,12 @@ struct MyFilmsView: View {
         let count = viewModel.storageHealth.reclaimableFileCount
         let size = formattedBytes(viewModel.storageHealth.reclaimableBytes)
         return "\(count) unused file\(count == 1 ? "" : "s") can be safely removed (\(size))."
+    }
+
+    private var interruptedRenderSummary: String {
+        let count = viewModel.interruptedRenders.count
+        return "\(count) export\(count == 1 ? " was" : "s were") interrupted before completion. "
+            + "Your drafts are safe; open a marked film and export again to retry."
     }
 
     private var emptyState: some View {
@@ -191,6 +211,12 @@ struct MyFilmsView: View {
 
                 if session.missingClipCount > 0 {
                     Label("\(session.missingClipCount) missing clip\(session.missingClipCount == 1 ? "" : "s") — tap to repair", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+
+                if viewModel.hasInterruptedRender(for: session.id) {
+                    Label("Export interrupted — tap to continue", systemImage: "arrow.clockwise.circle.fill")
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }
