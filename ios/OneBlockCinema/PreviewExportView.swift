@@ -16,10 +16,38 @@ struct PreviewExportView: View {
 
     private var previewIdentity: String {
         guard let session else { return "no-session" }
-        let clips = session.clipsInEditOrder.map {
-            "\($0.id.uuidString):\($0.duration):\($0.effectiveTrimStart):\($0.effectiveTrimEnd):\($0.showTitle):\($0.titleText):\($0.volume):\($0.transitionStyle.rawValue):\($0.mediaStatus.rawValue)"
-        }.joined(separator: "|")
-        return "\(session.id.uuidString):\(session.aspectRatio?.rawValue ?? "16:9"):\(session.pacingStyle.rawValue):\(session.editStyle.rawValue):\(clips)"
+        let clips = session.clipsInEditOrder.map(clipPreviewIdentity).joined(separator: "|")
+        let audio = session.audioTracks.map(audioPreviewIdentity).joined(separator: "|")
+        let project = [
+            session.id.uuidString,
+            session.aspectRatio?.rawValue ?? "16:9",
+            session.pacingStyle.rawValue,
+            session.editStyle.rawValue,
+        ].joined(separator: ":")
+        return "\(project):\(clips):\(audio)"
+    }
+
+    private func clipPreviewIdentity(_ clip: FilmClip) -> String {
+        [
+            clip.id.uuidString,
+            String(clip.duration),
+            String(clip.effectiveTrimStart),
+            String(clip.effectiveTrimEnd),
+            String(clip.showTitle),
+            clip.titleText,
+            String(clip.volume),
+            clip.transitionStyle.rawValue,
+            clip.mediaStatus.rawValue,
+        ].joined(separator: ":")
+    }
+
+    private func audioPreviewIdentity(_ track: ProjectAudioTrack) -> String {
+        [
+            track.id.uuidString,
+            track.kind.rawValue,
+            String(track.duration),
+            String(track.volume),
+        ].joined(separator: ":")
     }
 
     var body: some View {

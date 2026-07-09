@@ -270,7 +270,19 @@ struct OneBlockCinemaTests {
         let prompt = ShotPrompt(index: 0, direction: "Opening", hint: "", icon: "film")
         let sessionId = UUID()
         let durableURL = try await storage.copyClip(sourceURL, for: sessionId)
-        var session = FilmSession(id: sessionId, theme: .documentary, prompts: [prompt])
+        let audioURL = try await storage.copyAudio(sourceURL, for: sessionId)
+        let ambient = ProjectAudioTrack(
+            kind: .ambient,
+            fileURL: audioURL,
+            duration: 2,
+            volume: 0.2
+        )
+        var session = FilmSession(
+            id: sessionId,
+            theme: .documentary,
+            prompts: [prompt],
+            audioTracks: [ambient]
+        )
         let attached = session.attachClip(FilmClip(promptId: prompt.id, fileURL: durableURL, duration: 2))
         #expect(attached)
         try await storage.saveSessions([session])
@@ -285,6 +297,10 @@ struct OneBlockCinemaTests {
             [.modificationDate: now.addingTimeInterval(-25 * 60 * 60)],
             ofItemAtPath: staleOrphan.path
         )
+        try FileManager.default.setAttributes(
+            [.modificationDate: now.addingTimeInterval(-25 * 60 * 60)],
+            ofItemAtPath: audioURL.path
+        )
 
         let health = try await storage.auditStorage(now: now)
         #expect(health.reclaimableFileCount == 1)
@@ -294,6 +310,7 @@ struct OneBlockCinemaTests {
         #expect(result.removedFileCount == 1)
         #expect(result.reclaimedBytes >= 5)
         #expect(FileManager.default.fileExists(atPath: durableURL.path))
+        #expect(FileManager.default.fileExists(atPath: audioURL.path))
         #expect(!FileManager.default.fileExists(atPath: staleOrphan.path))
         #expect(FileManager.default.fileExists(atPath: freshOrphan.path))
     }
@@ -370,6 +387,36 @@ struct OneBlockCinemaTests {
         #expect(loadedFirstClip.titleText == "An opening")
         #expect(loadedFirstClip.volume == 0.35)
         #expect(loaded.clips.first { $0.id == secondClip.id }?.transitionStyle == .crossfade)
+    }
+
+    @Test func persistsProjectOwnedAudioWithRelativePathsAndVolume() async throws {
+        let (storage, _, _) = makeStorage()
+        let sourceURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("voiceover-\(UUID().uuidString).m4a")
+        try Data("audio-fixture".utf8).write(to: sourceURL)
+        defer { try? FileManager.default.removeItem(at: sourceURL) }
+
+        let sessionId = UUID()
+        let durableURL = try await storage.copyAudio(sourceURL, for: sessionId)
+        let voiceover = ProjectAudioTrack(
+            kind: .voiceover,
+            fileURL: durableURL,
+            duration: 12,
+            volume: 0.65
+        )
+        let session = FilmSession(
+            id: sessionId,
+            theme: .documentary,
+            audioTracks: [voiceover]
+        )
+
+        try await storage.saveSessions([session])
+        let loaded = try #require(try await storage.loadSessions().first)
+        let loadedVoiceover = try #require(loaded.audioTrack(kind: .voiceover))
+
+        #expect(loadedVoiceover.fileURL == durableURL.standardizedFileURL)
+        #expect(loadedVoiceover.duration == 12)
+        #expect(loadedVoiceover.volume == 0.65)
     }
 
     @Test func migratesLegacyUserDefaultsOnlyOnce() async throws {
@@ -550,6 +597,32 @@ struct OneBlockCinemaTests {
         #expect(plan.segments.map(\.timelineStart) == [0, 4])
         #expect(plan.segments.map(\.duration) == [4, 6])
         #expect(plan.totalDuration == 10)
+    }
+
+    @Test func projectRenderPlanCarriesNonDestructiveAudioMixDecisions() {
+        let clip = makeClip(1, duration: 8)
+        let voiceover = ProjectAudioTrack(
+            kind: .voiceover,
+            fileURL: URL(fileURLWithPath: "/tmp/voiceover.m4a"),
+            duration: 8,
+            volume: 0.8
+        )
+        let ambient = ProjectAudioTrack(
+            kind: .ambient,
+            fileURL: URL(fileURLWithPath: "/tmp/ambient.m4a"),
+            duration: 2,
+            volume: 0.2
+        )
+        let project = FilmSession(
+            theme: .documentary,
+            clips: [clip],
+            audioTracks: [voiceover, ambient]
+        )
+
+        let plan = VideoExportLimits.plan(for: project)
+
+        #expect(plan.audioTracks == [voiceover, ambient])
+        #expect(plan.totalDuration == 8)
     }
 
     @Test func projectRenderPlanUsesSavedOrderAndTrimPoints() {

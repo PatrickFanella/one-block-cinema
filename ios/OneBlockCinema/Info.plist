@@ -27,7 +27,7 @@
     <key>NSCameraUsageDescription</key>
     <string>One-Block Cinema needs camera access to record your film clips.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>One-Block Cinema needs microphone access to capture sound for your films.</string>
+    <string>One-Block Cinema needs microphone access to record sound and voiceover for your films.</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>One-Block Cinema needs photo library access to import video clips you select.</string>
     <key>OBCAPIBaseURL</key>

@@ -62,6 +62,12 @@ struct MyFilmsView: View {
                     .foregroundStyle(.orange)
             }
 
+            if viewModel.storageHealth.missingAudioTrackCount > 0 {
+                Text(missingAudioSummary)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+
             if viewModel.storageHealth.recoveryIssueCount > 0 {
                 Text(recoveryIssueSummary)
                     .font(.caption)
@@ -125,6 +131,12 @@ struct MyFilmsView: View {
         let verb = count == 1 ? "was" : "were"
         return "\(count) earlier draft record\(count == 1 ? "" : "s") \(verb) preserved for support recovery "
             + "because it could not be read."
+    }
+
+    private var missingAudioSummary: String {
+        let count = viewModel.storageHealth.missingAudioTrackCount
+        return "\(count) project audio track\(count == 1 ? " is" : "s are") missing. "
+            + "Open the affected film and replace it in Assembly."
     }
 
     private var reclaimableMediaSummary: String {
@@ -211,6 +223,12 @@ struct MyFilmsView: View {
 
                 if session.missingClipCount > 0 {
                     Label("\(session.missingClipCount) missing clip\(session.missingClipCount == 1 ? "" : "s") — tap to repair", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+
+                if session.missingAudioTrackCount > 0 {
+                    Label("\(session.missingAudioTrackCount) missing audio track\(session.missingAudioTrackCount == 1 ? "" : "s")", systemImage: "waveform.badge.exclamationmark")
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }

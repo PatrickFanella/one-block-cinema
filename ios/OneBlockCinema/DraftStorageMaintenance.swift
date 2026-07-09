@@ -3,19 +3,24 @@ import GRDB
 
 nonisolated struct DraftStorageHealth: Sendable, Hashable {
     let missingClipCount: Int
+    let missingAudioTrackCount: Int
     let recoveryIssueCount: Int
     let reclaimableFileCount: Int
     let reclaimableBytes: Int64
 
     static let empty = DraftStorageHealth(
         missingClipCount: 0,
+        missingAudioTrackCount: 0,
         recoveryIssueCount: 0,
         reclaimableFileCount: 0,
         reclaimableBytes: 0
     )
 
     var needsAttention: Bool {
-        missingClipCount > 0 || recoveryIssueCount > 0 || reclaimableFileCount > 0
+        missingClipCount > 0
+            || missingAudioTrackCount > 0
+            || recoveryIssueCount > 0
+            || reclaimableFileCount > 0
     }
 }
 
@@ -47,6 +52,7 @@ extension SessionStorage {
         )
         return DraftStorageHealth(
             missingClipCount: snapshot.missingClipCount,
+            missingAudioTrackCount: snapshot.missingAudioTrackCount,
             recoveryIssueCount: snapshot.recoveryIssueCount,
             reclaimableFileCount: candidates.count,
             reclaimableBytes: candidates.reduce(0) { $0 + $1.byteCount }
@@ -98,6 +104,7 @@ nonisolated enum DraftStorageMaintenance {
     struct StorageSnapshot {
         let referencedPaths: Set<String>
         let missingClipCount: Int
+        let missingAudioTrackCount: Int
         let recoveryIssueCount: Int
     }
 
@@ -118,6 +125,7 @@ nonisolated enum DraftStorageMaintenance {
         )
         var referencedPaths = Set<String>()
         var missingClipCount = 0
+        var missingAudioTrackCount = 0
 
         for row in rows {
             let path: String = row["path"]
@@ -144,9 +152,26 @@ nonisolated enum DraftStorageMaintenance {
             }
         }
 
+        let audioRows = try Row.fetchAll(
+            db,
+            sql: "SELECT path, path_kind FROM local_audio_tracks"
+        )
+        for row in audioRows {
+            let path: String = row["path"]
+            let kind: String = row["path_kind"]
+            let audioURL = resolvedURL(path: path, kind: kind, rootDirectory: rootDirectory)
+            if !fileManager.fileExists(atPath: audioURL.path) {
+                missingAudioTrackCount += 1
+            }
+            if isDescendant(audioURL, of: draftsDirectory) {
+                referencedPaths.insert(audioURL.standardizedFileURL.path)
+            }
+        }
+
         return StorageSnapshot(
             referencedPaths: referencedPaths,
             missingClipCount: missingClipCount,
+            missingAudioTrackCount: missingAudioTrackCount,
             recoveryIssueCount: try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM recovery_issues") ?? 0
         )
     }

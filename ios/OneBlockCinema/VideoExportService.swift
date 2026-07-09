@@ -43,6 +43,7 @@ nonisolated struct RenderPlan: Sendable, Equatable {
     let aspectRatio: TemplateAspectRatio
     let outputDimensions: RenderDimensions
     let segments: [RenderSegment]
+    let audioTracks: [ProjectAudioTrack]
     let titleCues: [RenderTitleCue]
     let totalDuration: TimeInterval
     let wasTrimmedToMaximumDuration: Bool
@@ -60,6 +61,7 @@ nonisolated enum VideoExportLimits {
         buildPlan(
             projectId: project.id,
             clips: project.clipsInEditOrder,
+            audioTracks: project.audioTracks,
             aspectRatio: project.aspectRatio ?? .horizontal,
             pacingStyle: project.pacingStyle,
             editStyle: project.editStyle,
@@ -71,6 +73,7 @@ nonisolated enum VideoExportLimits {
         buildPlan(
             projectId: nil,
             clips: clips,
+            audioTracks: [],
             aspectRatio: .horizontal,
             pacingStyle: .rhythmic,
             editStyle: .standard,
@@ -81,6 +84,7 @@ nonisolated enum VideoExportLimits {
     private static func buildPlan(
         projectId: UUID?,
         clips: [FilmClip],
+        audioTracks: [ProjectAudioTrack],
         aspectRatio: TemplateAspectRatio,
         pacingStyle: PacingStyle,
         editStyle: EditStyle,
@@ -92,6 +96,7 @@ nonisolated enum VideoExportLimits {
                 aspectRatio: aspectRatio,
                 outputDimensions: .fullHD(for: aspectRatio),
                 segments: [],
+                audioTracks: audioTracks,
                 titleCues: [],
                 totalDuration: 0,
                 wasTrimmedToMaximumDuration: !clips.isEmpty,
@@ -159,6 +164,7 @@ nonisolated enum VideoExportLimits {
             aspectRatio: aspectRatio,
             outputDimensions: .fullHD(for: aspectRatio),
             segments: segments,
+            audioTracks: audioTracks,
             titleCues: titleCues,
             totalDuration: timelineEnd,
             wasTrimmedToMaximumDuration: trimmed,
@@ -213,7 +219,7 @@ nonisolated enum RenderCompositionBuilder {
         let videoComposition = AVMutableVideoComposition()
         videoComposition.renderSize = plan.outputDimensions.size
         videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
-        let audioParameters = audioTracks.map { AVMutableAudioMixInputParameters(track: $0) }
+        var audioParameters = audioTracks.map { AVMutableAudioMixInputParameters(track: $0) }
         var insertedSegments: [InsertedVideoSegment] = []
 
         for (index, segment) in plan.segments.enumerated() {
@@ -293,6 +299,13 @@ nonisolated enum RenderCompositionBuilder {
         guard insertedSegments.count == plan.segments.count else {
             throw ExportError.incompleteExport
         }
+        try await insertProjectAudio(
+            plan.audioTracks,
+            into: composition,
+            parameters: &audioParameters,
+            timelineDuration: plan.totalDuration,
+            muted: plan.editStyle == .silentFilm
+        )
         var instructions = makeVideoInstructions(for: insertedSegments)
         instructions.sort { CMTimeCompare($0.timeRange.start, $1.timeRange.start) < 0 }
         guard !instructions.isEmpty else { throw ExportError.incompleteExport }
@@ -307,6 +320,52 @@ nonisolated enum RenderCompositionBuilder {
             audioMix = mix
         }
         return PreparedRender(composition: composition, videoComposition: videoComposition, audioMix: audioMix)
+    }
+
+    private static func insertProjectAudio(
+        _ projectTracks: [ProjectAudioTrack],
+        into composition: AVMutableComposition,
+        parameters: inout [AVMutableAudioMixInputParameters],
+        timelineDuration: TimeInterval,
+        muted: Bool
+    ) async throws {
+        guard timelineDuration > 0 else { return }
+        for projectTrack in projectTracks {
+            guard FileManager.default.fileExists(atPath: projectTrack.fileURL.path) else {
+                throw ExportError.missingAudio(projectTrack.kind)
+            }
+            let asset = AVURLAsset(url: projectTrack.fileURL)
+            guard let source = try await asset.loadTracks(withMediaType: .audio).first else {
+                throw ExportError.invalidAudio(projectTrack.kind)
+            }
+            guard let target = composition.addMutableTrack(
+                withMediaType: .audio,
+                preferredTrackID: kCMPersistentTrackID_Invalid
+            ) else { throw ExportError.trackCreationFailed }
+            let assetDuration = max(0, CMTimeGetSeconds(try await asset.load(.duration)))
+            guard assetDuration.isFinite, assetDuration > 0 else {
+                throw ExportError.invalidAudio(projectTrack.kind)
+            }
+            let desiredVolume = Float(muted ? 0 : min(max(projectTrack.volume, 0), 1))
+            let mix = AVMutableAudioMixInputParameters(track: target)
+            mix.setVolume(desiredVolume, at: .zero)
+            parameters.append(mix)
+
+            var cursor: TimeInterval = 0
+            repeat {
+                let insertedDuration = min(assetDuration, timelineDuration - cursor)
+                guard insertedDuration > 0 else { break }
+                try target.insertTimeRange(
+                    CMTimeRange(
+                        start: .zero,
+                        duration: CMTime(seconds: insertedDuration, preferredTimescale: 600)
+                    ),
+                    of: source,
+                    at: CMTime(seconds: cursor, preferredTimescale: 600)
+                )
+                cursor += insertedDuration
+            } while projectTrack.kind == .ambient && cursor < timelineDuration
+        }
     }
 
     private static func makeVideoInstructions(
@@ -518,6 +577,8 @@ nonisolated enum ExportError: Error, LocalizedError, Sendable {
     case exportSessionFailed
     case missingClip(String)
     case invalidClip(String)
+    case missingAudio(ProjectAudioTrackKind)
+    case invalidAudio(ProjectAudioTrackKind)
     case incompleteExport
     case insufficientStorage(requiredMegabytes: Int, availableMegabytes: Int)
     case exportFailed(String)
@@ -534,6 +595,10 @@ nonisolated enum ExportError: Error, LocalizedError, Sendable {
             "Missing clip file: \(name)"
         case .invalidClip(let name):
             "Clip is not readable video: \(name)"
+        case .missingAudio(let kind):
+            "The \(kind.rawValue) audio file is missing. Replace or remove it in Assembly."
+        case .invalidAudio(let kind):
+            "The \(kind.rawValue) audio file is not readable. Replace it in Assembly."
         case .incompleteExport:
             "Export stopped because one or more clips could not be included."
         case .insufficientStorage(let required, let available):

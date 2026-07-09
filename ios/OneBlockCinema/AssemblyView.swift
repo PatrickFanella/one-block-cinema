@@ -1,10 +1,14 @@
-import SwiftUI
 import AVKit
+import SwiftUI
+import UniformTypeIdentifiers
 
 struct AssemblyView: View {
     @Bindable var viewModel: FilmSessionViewModel
     @State private var selectedClip: FilmClip?
     @State private var showPreview: Bool = false
+    @State private var showVoiceoverRecorder = false
+    @State private var showAudioImporter = false
+    @State private var pendingAudioKind: ProjectAudioTrackKind?
 
     private var session: FilmSession? { viewModel.activeSession }
     private var theme: FilmTheme { session?.theme ?? .documentary }
@@ -16,6 +20,7 @@ struct AssemblyView: View {
 
                 if let session, !session.clips.isEmpty {
                     lookSection
+                    audioSection
                     limitationsSection
                     previewButton
                 }
@@ -38,8 +43,28 @@ struct AssemblyView: View {
         .sheet(item: $selectedClip) { clip in
             ClipDetailSheet(clip: clip, viewModel: viewModel)
         }
+        .sheet(isPresented: $showVoiceoverRecorder) {
+            VoiceoverRecorderSheet { url in
+                Task {
+                    _ = await viewModel.attachAudioTrack(from: url, kind: .voiceover)
+                    try? FileManager.default.removeItem(at: url)
+                }
+            }
+        }
+        .fileImporter(
+            isPresented: $showAudioImporter,
+            allowedContentTypes: [.audio],
+            allowsMultipleSelection: false
+        ) { result in
+            handleAudioImport(result)
+        }
         .navigationDestination(isPresented: $showPreview) {
             PreviewExportView(viewModel: viewModel)
+        }
+        .alert("Audio Issue", isPresented: $viewModel.showError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(viewModel.errorMessage ?? "Try a different audio file.")
         }
     }
 
@@ -199,13 +224,135 @@ struct AssemblyView: View {
                 .foregroundStyle(CinemaColors.warmWhite)
 
             capabilityRow(icon: "checkmark.circle.fill", text: "Uses your saved clip order and non-destructive trim points")
-            capabilityRow(icon: "checkmark.circle.fill", text: "Renders cuts/crossfades, clip titles, per-clip audio levels, and the selected look")
+            capabilityRow(icon: "checkmark.circle.fill", text: "Renders cuts/crossfades, clip titles, source levels, voiceover, ambient beds, and the selected look")
             capabilityRow(icon: "checkmark.circle.fill", text: "Skips prompts that do not have clips yet")
-            capabilityRow(icon: "lock.fill", text: "Standalone intertitle cards, voiceover, and soundtrack beds are not built yet")
+            capabilityRow(icon: "lock.fill", text: "Standalone intertitle cards are not built yet")
         }
         .padding(14)
         .background(CinemaColors.surface.opacity(0.8))
         .clipShape(.rect(cornerRadius: 14))
+    }
+
+    private var audioSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Audio Mix")
+                .font(.system(.headline, design: .serif))
+                .foregroundStyle(CinemaColors.warmWhite)
+
+            audioTrackRow(
+                kind: .voiceover,
+                title: "Voiceover",
+                subtitle: "Record narration or import an audio file."
+            )
+            audioTrackRow(
+                kind: .ambient,
+                title: "Ambient Bed",
+                subtitle: "Import your own room tone or ambience; short files loop to the film length."
+            )
+
+            if viewModel.activeSession?.editStyle == .silentFilm {
+                Label("The Silent Film look mutes every audio track without deleting it.", systemImage: "speaker.slash.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+        }
+        .padding(14)
+        .background(CinemaColors.surface.opacity(0.8))
+        .clipShape(.rect(cornerRadius: 14))
+    }
+
+    @ViewBuilder
+    private func audioTrackRow(
+        kind: ProjectAudioTrackKind,
+        title: String,
+        subtitle: String
+    ) -> some View {
+        let track = viewModel.activeSession?.audioTrack(kind: kind)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(CinemaColors.warmWhite)
+                    Text(subtitle)
+                        .font(.caption2)
+                        .foregroundStyle(CinemaColors.dimText)
+                }
+                Spacer()
+                if let track {
+                    Text(formattedAudioDuration(track.duration))
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(CinemaColors.dimText)
+                }
+            }
+
+            if let track {
+                LabeledContent("Volume", value: "\(Int(track.volume * 100))%")
+                    .font(.caption)
+                    .foregroundStyle(CinemaColors.dimText)
+                Slider(
+                    value: Binding(
+                        get: { viewModel.activeSession?.audioTrack(kind: kind)?.volume ?? track.volume },
+                        set: { viewModel.updateAudioTrackVolume(kind: kind, volume: $0) }
+                    ),
+                    in: 0...1
+                )
+                .tint(CinemaColors.amber)
+                .accessibilityLabel("\(title) volume")
+
+                HStack {
+                    Button("Replace") { chooseAudio(for: kind) }
+                        .buttonStyle(.bordered)
+                    Button("Remove", role: .destructive) {
+                        viewModel.removeAudioTrack(kind: kind)
+                    }
+                    .buttonStyle(.bordered)
+                }
+            } else {
+                HStack {
+                    if kind == .voiceover {
+                        Button {
+                            showVoiceoverRecorder = true
+                        } label: {
+                            Label("Record", systemImage: "mic.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(CinemaColors.amber)
+                    }
+                    Button {
+                        chooseAudio(for: kind)
+                    } label: {
+                        Label("Import Audio", systemImage: "waveform.badge.plus")
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+        }
+    }
+
+    private func chooseAudio(for kind: ProjectAudioTrackKind) {
+        pendingAudioKind = kind
+        showAudioImporter = true
+    }
+
+    private func handleAudioImport(_ result: Result<[URL], Error>) {
+        guard let kind = pendingAudioKind else { return }
+        pendingAudioKind = nil
+        do {
+            guard let url = try result.get().first else { return }
+            Task {
+                let accessed = url.startAccessingSecurityScopedResource()
+                defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+                _ = await viewModel.attachAudioTrack(from: url, kind: kind)
+            }
+        } catch {
+            viewModel.errorMessage = "Could not open audio: \(error.localizedDescription)"
+            viewModel.showError = true
+        }
+    }
+
+    private func formattedAudioDuration(_ duration: TimeInterval) -> String {
+        String(format: "%d:%02d", Int(duration) / 60, Int(duration) % 60)
     }
 
     private var lookSection: some View {

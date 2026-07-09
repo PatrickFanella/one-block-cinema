@@ -10,6 +10,7 @@ Store local drafts safely for offline work without treating private media as syn
 
 - `SessionStorage` persists normalized project and clip metadata in a GRDB-managed SQLite database under app support.
 - Imported videos are copied into `Application Support/OneBlockCinema/Drafts/{sessionId}/Media/`.
+- Recorded/imported project audio is copied into `Application Support/OneBlockCinema/Drafts/{sessionId}/Audio/` and stored in normalized `local_audio_tracks` rows with relative paths and non-destructive volume.
 - Media owned by the app is stored as a path relative to the app-support root so container moves do not break drafts.
 - Missing media is retained as an explicit `ClipMediaStatus.missing` record; unreadable legacy metadata is left in place and indexed in `recovery_issues`.
 - My Films surfaces missing clips and opens the first affected shot for replacement. It also reports unreadable recovery records without discarding their source metadata.

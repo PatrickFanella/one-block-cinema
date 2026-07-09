@@ -135,7 +135,12 @@ actor SessionStorage {
                         fileManager: fileManager,
                         from: db
                     )
-                    return metadata.makeSession(clips: clips)
+                    let audioTracks = try ProjectAudioTrackPersistence.load(
+                        sessionId: sessionId,
+                        rootDirectory: root,
+                        from: db
+                    )
+                    return metadata.makeSession(clips: clips, audioTracks: audioTracks)
                 } catch {
                     let recoveryState: String = row["recovery_state"]
                     if recoveryState != "unreadable" {
@@ -445,6 +450,20 @@ actor SessionStorage {
                 ON local_render_jobs(status, updated_at);
                 """)
         }
+        migrator.registerMigration("add-project-audio-tracks-v7") { db in
+            try db.execute(sql: """
+                CREATE TABLE local_audio_tracks (
+                    id TEXT PRIMARY KEY NOT NULL,
+                    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+                    kind TEXT NOT NULL CHECK (kind IN ('voiceover', 'ambient')),
+                    path TEXT NOT NULL,
+                    path_kind TEXT NOT NULL CHECK (path_kind IN ('relative', 'absolute')),
+                    duration DOUBLE NOT NULL CHECK (duration > 0),
+                    volume DOUBLE NOT NULL CHECK (volume >= 0 AND volume <= 1),
+                    UNIQUE (session_id, kind)
+                );
+                """)
+        }
         return migrator
     }()
 
@@ -512,6 +531,12 @@ actor SessionStorage {
                     ]
                 )
             }
+            try ProjectAudioTrackPersistence.persist(
+                session.audioTracks,
+                sessionId: session.id,
+                rootDirectory: rootDirectory,
+                in: db
+            )
         }
     }
 
@@ -676,7 +701,7 @@ private nonisolated struct StoredSessionMetadata: Codable, Sendable {
         title = session.title
     }
 
-    func makeSession(clips: [FilmClip]) -> FilmSession {
+    func makeSession(clips: [FilmClip], audioTracks: [ProjectAudioTrack]) -> FilmSession {
         FilmSession(
             id: id,
             theme: theme,
@@ -689,6 +714,7 @@ private nonisolated struct StoredSessionMetadata: Codable, Sendable {
             assemblyGuidance: assemblyGuidance,
             prompts: prompts,
             clips: clips,
+            audioTracks: audioTracks,
             clipOrder: clipOrder ?? [],
             pacingStyle: pacingStyle,
             editStyle: editStyle,

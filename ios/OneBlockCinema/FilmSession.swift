@@ -12,6 +12,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
     let assemblyGuidance: TemplateAssemblyGuidance?
     var prompts: [ShotPrompt]
     var clips: [FilmClip]
+    var audioTracks: [ProjectAudioTrack]
     var clipOrder: [UUID]
     var pacingStyle: PacingStyle
     var editStyle: EditStyle
@@ -36,6 +37,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
         assemblyGuidance: TemplateAssemblyGuidance? = nil,
         prompts: [ShotPrompt] = [],
         clips: [FilmClip] = [],
+        audioTracks: [ProjectAudioTrack] = [],
         clipOrder: [UUID] = [],
         pacingStyle: PacingStyle = .rhythmic,
         editStyle: EditStyle = .standard,
@@ -59,6 +61,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
         self.assemblyGuidance = assemblyGuidance
         self.prompts = prompts
         self.clips = clips
+        self.audioTracks = audioTracks
         self.clipOrder = clipOrder
         self.pacingStyle = pacingStyle
         self.editStyle = editStyle
@@ -84,6 +87,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
         case assemblyGuidance
         case prompts
         case clips
+        case audioTracks
         case clipOrder
         case pacingStyle
         case editStyle
@@ -110,6 +114,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
         assemblyGuidance = try container.decodeIfPresent(TemplateAssemblyGuidance.self, forKey: .assemblyGuidance)
         prompts = try container.decodeIfPresent([ShotPrompt].self, forKey: .prompts) ?? []
         clips = try container.decodeIfPresent([FilmClip].self, forKey: .clips) ?? []
+        audioTracks = try container.decodeIfPresent([ProjectAudioTrack].self, forKey: .audioTracks) ?? []
         clipOrder = try container.decodeIfPresent([UUID].self, forKey: .clipOrder) ?? []
         pacingStyle = try container.decodeIfPresent(PacingStyle.self, forKey: .pacingStyle) ?? .rhythmic
         editStyle = try container.decodeIfPresent(EditStyle.self, forKey: .editStyle) ?? .standard
@@ -129,6 +134,24 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
 
     func clip(forPromptId promptId: UUID) -> FilmClip? {
         clips.first { $0.promptId == promptId }
+    }
+
+    func audioTrack(kind: ProjectAudioTrackKind) -> ProjectAudioTrack? {
+        audioTracks.first { $0.kind == kind }
+    }
+
+    mutating func setAudioTrack(_ track: ProjectAudioTrack) {
+        audioTracks.removeAll { $0.kind == track.kind }
+        audioTracks.append(track)
+    }
+
+    mutating func removeAudioTrack(kind: ProjectAudioTrackKind) {
+        audioTracks.removeAll { $0.kind == kind }
+    }
+
+    mutating func setAudioTrackVolume(kind: ProjectAudioTrackKind, volume: Double) {
+        guard let index = audioTracks.firstIndex(where: { $0.kind == kind }) else { return }
+        audioTracks[index].volume = min(max(volume, 0), 1)
     }
 
     mutating func attachClip(_ clip: FilmClip) -> Bool {
@@ -175,6 +198,10 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
         clips.filter { $0.mediaStatus == .missing }.count
     }
 
+    var missingAudioTrackCount: Int {
+        audioTracks.filter { !FileManager.default.fileExists(atPath: $0.fileURL.path) }.count
+    }
+
     var progress: Double {
         guard !prompts.isEmpty else { return 0 }
         return Double(completedPromptCount) / Double(prompts.count)
@@ -192,6 +219,7 @@ nonisolated struct FilmSession: Identifiable, Codable, Sendable {
             assemblyGuidance: assemblyGuidance,
             prompts: prompts,
             clips: clips,
+            audioTracks: audioTracks,
             clipOrder: clipOrder,
             pacingStyle: pacingStyle,
             editStyle: editStyle,

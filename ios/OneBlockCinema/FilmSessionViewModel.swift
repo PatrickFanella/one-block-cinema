@@ -220,6 +220,7 @@ class FilmSessionViewModel {
 
             activeSession = session
             saveCurrentSession()
+            await pendingPersistenceTask?.value
 
             if let oldClip {
                 try? await storage.deleteClipFile(at: oldClip.fileURL)
@@ -240,7 +241,9 @@ class FilmSessionViewModel {
         resetExportState()
         activeSession?.removeClip(clip)
         saveCurrentSession()
+        let persistenceTask = pendingPersistenceTask
         Task {
+            await persistenceTask?.value
             try? await storage.deleteClipFile(at: clip.fileURL)
         }
     }
@@ -338,6 +341,69 @@ class FilmSessionViewModel {
 
     func toggleAmbientSoundtrack() {
         activeSession?.useAmbientSoundtrack.toggle()
+        saveCurrentSession()
+    }
+
+    func attachAudioTrack(from url: URL, kind: ProjectAudioTrackKind) async -> Bool {
+        guard var session = activeSession else {
+            errorMessage = "Start or resume a film before adding audio."
+            showError = true
+            return false
+        }
+        var copiedURL: URL?
+        do {
+            let duration = try await audioDuration(for: url)
+            let durableURL = try await storage.copyAudio(url, for: session.id)
+            copiedURL = durableURL
+            let oldTrack = session.audioTrack(kind: kind)
+            let defaultVolume = kind == .voiceover ? 1.0 : 0.25
+            session.setAudioTrack(
+                ProjectAudioTrack(
+                    kind: kind,
+                    fileURL: durableURL,
+                    duration: duration,
+                    volume: oldTrack?.volume ?? defaultVolume
+                )
+            )
+            if kind == .ambient {
+                session.useAmbientSoundtrack = true
+            }
+            resetExportState()
+            activeSession = session
+            saveCurrentSession()
+            await pendingPersistenceTask?.value
+            if let oldTrack {
+                try? await storage.deleteClipFile(at: oldTrack.fileURL)
+            }
+            return true
+        } catch {
+            if let copiedURL {
+                try? await storage.deleteClipFile(at: copiedURL)
+            }
+            errorMessage = "Could not add audio: \(error.localizedDescription)"
+            showError = true
+            return false
+        }
+    }
+
+    func removeAudioTrack(kind: ProjectAudioTrackKind) {
+        guard let track = activeSession?.audioTrack(kind: kind) else { return }
+        resetExportState()
+        activeSession?.removeAudioTrack(kind: kind)
+        if kind == .ambient {
+            activeSession?.useAmbientSoundtrack = false
+        }
+        saveCurrentSession()
+        let persistenceTask = pendingPersistenceTask
+        Task {
+            await persistenceTask?.value
+            try? await storage.deleteClipFile(at: track.fileURL)
+        }
+    }
+
+    func updateAudioTrackVolume(kind: ProjectAudioTrackKind, volume: Double) {
+        resetExportState()
+        activeSession?.setAudioTrackVolume(kind: kind, volume: volume)
         saveCurrentSession()
     }
 
@@ -523,6 +589,17 @@ class FilmSessionViewModel {
         return seconds
     }
 
+    private func audioDuration(for url: URL) async throws -> TimeInterval {
+        let asset = AVURLAsset(url: url)
+        let tracks = try await asset.loadTracks(withMediaType: .audio)
+        guard !tracks.isEmpty else {
+            throw ProjectAudioError.noAudioTrack
+        }
+        let duration = CMTimeGetSeconds(try await asset.load(.duration))
+        guard duration.isFinite, duration > 0 else { throw ProjectAudioError.invalidDuration }
+        return min(duration, VideoExportLimits.maximumDuration)
+    }
+
     private static func formattedDuration(_ duration: TimeInterval) -> String {
         let minutes = Int(duration) / 60
         let seconds = Int(duration) % 60
@@ -531,6 +608,20 @@ class FilmSessionViewModel {
 
     private static func formattedBytes(_ bytes: Int64) -> String {
         ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
+}
+
+nonisolated enum ProjectAudioError: LocalizedError, Sendable {
+    case noAudioTrack
+    case invalidDuration
+
+    var errorDescription: String? {
+        switch self {
+        case .noAudioTrack:
+            "The selected file does not contain a readable audio track."
+        case .invalidDuration:
+            "The selected audio has an invalid duration."
+        }
     }
 }
 
