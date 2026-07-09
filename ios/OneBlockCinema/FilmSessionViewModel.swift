@@ -23,17 +23,24 @@ class FilmSessionViewModel {
     var storageCleanupMessage: String?
     var isCleaningStorage: Bool = false
     var interruptedRenders: [InterruptedRender] = []
+    var isPreparingLocalDataExport = false
+    var localDataExportURL: URL?
 
     private let storage: SessionStorage
     private let exportService = VideoExportService()
+    private let localDataExportService: LocalDataExportService
     private var pendingPersistenceTask: Task<Void, Never>?
     private var activeExportID: UUID?
     private var backgroundTaskIdentifier: UIBackgroundTaskIdentifier = .invalid
     private var backgroundTaskExpiredExportID: UUID?
     private var didRecoverInterruptedRenders = false
 
-    init(storage: SessionStorage = SessionStorage()) {
+    init(
+        storage: SessionStorage = SessionStorage(),
+        localDataExportService: LocalDataExportService = LocalDataExportService()
+    ) {
         self.storage = storage
+        self.localDataExportService = localDataExportService
     }
 
     var currentPrompt: ShotPrompt? {
@@ -162,6 +169,25 @@ class FilmSessionViewModel {
             interruptedRenders = []
         } catch {
             errorMessage = "Could not dismiss the export recovery notice: \(error.localizedDescription)"
+            showError = true
+        }
+    }
+
+    func prepareLocalDataExport() async {
+        guard !isPreparingLocalDataExport else { return }
+        isPreparingLocalDataExport = true
+        localDataExportURL = nil
+        defer { isPreparingLocalDataExport = false }
+        await pendingPersistenceTask?.value
+
+        do {
+            let recoveryIssues = try await storage.loadRecoveryIssues()
+            localDataExportURL = try await localDataExportService.export(
+                sessions: sessions,
+                recoveryIssues: recoveryIssues
+            )
+        } catch {
+            errorMessage = "Could not prepare your local data export: \(error.localizedDescription)"
             showError = true
         }
     }

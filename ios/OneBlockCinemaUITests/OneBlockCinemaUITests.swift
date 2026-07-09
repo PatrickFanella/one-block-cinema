@@ -37,6 +37,19 @@ final class OneBlockCinemaUITests: XCTestCase {
     }
 
     @MainActor
+    func testSettingsExposesLocalDataExport() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let settingsTab = app.tabBars.buttons["Settings"]
+        XCTAssertTrue(settingsTab.waitForExistence(timeout: 5))
+        settingsTab.tap()
+
+        XCTAssertTrue(app.staticTexts["settings.title"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Export Project Data"].exists)
+    }
+
+    @MainActor
     func testLaunchPerformance() throws {
         measure(metrics: [XCTApplicationLaunchMetric()]) {
             XCUIApplication().launch()

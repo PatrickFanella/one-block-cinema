@@ -18,6 +18,12 @@ struct ContentView: View {
                     MyFilmsView(viewModel: viewModel)
                 }
             }
+
+            Tab("Settings", systemImage: "gearshape.fill", value: .settings) {
+                NavigationStack {
+                    SettingsView(viewModel: viewModel)
+                }
+            }
         }
         .tint(CinemaColors.amber)
         .task {
@@ -32,4 +38,5 @@ struct ContentView: View {
 nonisolated enum AppTab: String, Hashable, Sendable {
     case create
     case films
+    case settings
 }
