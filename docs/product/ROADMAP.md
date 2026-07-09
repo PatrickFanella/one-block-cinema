@@ -41,7 +41,8 @@ Implemented foundation:
 - Provider-neutral auth/sync/community protocols, revision state, non-destructive recovered-copy conflict policy, Fastify API, pg-boss worker, Supabase schema/RLS, private storage policies, and environment/deployment runbook.
 - Fail-closed iOS environment/feature configuration, a validated local-only Apple privacy manifest, and draft privacy, terms, support, retention, and App Store disclosure artifacts.
 - A retry-safe account-deletion worker removes private Supabase Storage data and Mux assets before Auth deletion, retains durable audit status, and blocks Apple accounts until revocation is available.
-- Settings exposes a user-controlled, human-readable export of all local project metadata, edit decisions, and preserved recovery issues without leaking private container paths or duplicating source media.
+- Settings exposes a user-controlled, human-readable export of all local project metadata, edit decisions, and preserved recovery issues without exposing absolute media paths or duplicating source media.
+- A separately confirmed local-data deletion control removes all drafts, app-owned media, recovery records, interrupted renders, and pending sync operations without requiring an account.
 
 Remaining:
 

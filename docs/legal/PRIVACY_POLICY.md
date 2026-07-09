@@ -16,7 +16,9 @@ Camera, microphone, and photo-library access are requested contextually for reco
 
 Deleting a project removes its app-owned media and local metadata. Deleting the app removes its app container, subject to the device platform's backup and deletion behavior.
 
-The Settings screen can create a human-readable JSON export of local project metadata, shot prompts, edit decisions, and preserved recovery issues. The export excludes source video and audio bytes and strips private app-container paths. The user chooses where to send or save the resulting file through the system share sheet.
+The Settings screen can create a human-readable JSON export of local project metadata, shot prompts, edit decisions, and preserved recovery issues. The export excludes source video and audio bytes and strips absolute media paths. The user chooses where to send or save the resulting file through the system share sheet.
+
+Settings also provides a separately confirmed action to delete all local projects, app-owned source media, edit metadata, recovery records, interrupted-export records, and pending sync operations. Films previously exported or shared outside the app are not affected.
 
 ## Connected features
 

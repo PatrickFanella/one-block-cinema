@@ -215,6 +215,28 @@ actor SessionStorage {
         }
     }
 
+    func deleteAllLocalData() throws {
+        let queue = try database()
+        try queue.write { db in
+            try db.execute(sql: "DELETE FROM local_render_jobs")
+            try db.execute(sql: "DELETE FROM local_audio_tracks")
+            try db.execute(sql: "DELETE FROM clips")
+            try db.execute(sql: "DELETE FROM sessions")
+            try db.execute(sql: "DELETE FROM sync_outbox")
+            try db.execute(sql: "DELETE FROM recovery_issues")
+        }
+
+        let drafts = try draftsDirectory
+        if fileManager.fileExists(atPath: drafts.path) {
+            try fileManager.removeItem(at: drafts)
+        }
+        let legacyFile = try legacySessionsFile
+        if fileManager.fileExists(atPath: legacyFile.path) {
+            try fileManager.removeItem(at: legacyFile)
+        }
+        userDefaults.removeObject(forKey: sessionsKey)
+    }
+
     func enqueueSyncOperation(
         aggregateId: UUID,
         kind: SyncOperationKind,

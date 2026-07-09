@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @Bindable var viewModel: FilmSessionViewModel
     @State private var showDataShare = false
+    @State private var showDeleteConfirmation = false
 
     var body: some View {
         Form {
@@ -26,6 +27,16 @@ struct SettingsView: View {
                 Text("The JSON export includes project metadata and edit decisions. Source video and audio files are not duplicated.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                Button("Delete All Local Data", role: .destructive) {
+                    showDeleteConfirmation = true
+                }
+
+                if let message = viewModel.localDataDeletionMessage {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(CinemaColors.amber)
+                }
             }
 
             Section("Connected features") {
@@ -60,6 +71,18 @@ struct SettingsView: View {
             if let url = viewModel.localDataExportURL {
                 ShareSheet(items: [url])
             }
+        }
+        .confirmationDialog(
+            "Delete all local data?",
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete Projects and Media", role: .destructive) {
+                Task { await viewModel.deleteAllLocalData() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently deletes every local draft, app-owned clip and audio file, edit decision, recovery record, and pending sync operation. Exported films saved elsewhere are not affected.")
         }
         .alert("Data Export Error", isPresented: $viewModel.showError) {
             Button("OK") {}

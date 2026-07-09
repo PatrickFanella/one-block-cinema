@@ -47,6 +47,7 @@ final class OneBlockCinemaUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["settings.title"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Export Project Data"].exists)
+        XCTAssertTrue(app.buttons["Delete All Local Data"].exists)
     }
 
     @MainActor

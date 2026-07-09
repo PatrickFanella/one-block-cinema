@@ -25,6 +25,7 @@ class FilmSessionViewModel {
     var interruptedRenders: [InterruptedRender] = []
     var isPreparingLocalDataExport = false
     var localDataExportURL: URL?
+    var localDataDeletionMessage: String?
 
     private let storage: SessionStorage
     private let exportService = VideoExportService()
@@ -188,6 +189,32 @@ class FilmSessionViewModel {
             )
         } catch {
             errorMessage = "Could not prepare your local data export: \(error.localizedDescription)"
+            showError = true
+        }
+    }
+
+    func deleteAllLocalData() async {
+        guard !isExporting else {
+            errorMessage = "Wait for the current film export to finish or cancel it before deleting local data."
+            showError = true
+            return
+        }
+        await pendingPersistenceTask?.value
+
+        do {
+            try await storage.deleteAllLocalData()
+            sessions = []
+            activeSession = nil
+            currentPromptIndex = 0
+            interruptedRenders = []
+            storageHealth = .empty
+            storageCleanupMessage = nil
+            localDataExportURL = nil
+            localDataDeletionMessage = "All local project data and app-owned draft media were deleted."
+            resetExportState()
+        } catch {
+            await loadSessions()
+            errorMessage = "Local data deletion did not finish: \(error.localizedDescription)"
             showError = true
         }
     }
