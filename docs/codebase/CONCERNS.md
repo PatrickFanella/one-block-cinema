@@ -7,7 +7,7 @@
 - Camera path appears placeholder-like and is cut from MVP in favor of import-first capture.
 - Preview/export UI may overpromise compared with actual export behavior.
 - Edit styles, transitions, title cards, trimming, and reorder UX need validation.
-- Template count of 10 needs data-driven implementation to avoid hardcoded sprawl.
+- Ten templates now load from a versioned bundled catalog; editorial, device, and accessibility QA remain incomplete.
 
 ## Architecture risks
 
@@ -26,7 +26,7 @@
 
 1. Add unit tests for prompt generation and session lifecycle.
 2. Implement and verify import-first prompt clip attachment.
-3. Define launch template schema and first 10 templates.
+3. Verify all 10 templates end-to-end with representative media and device accessibility QA.
 4. Replace or clearly disable placeholder camera UX until a post-MVP camera issue.
 5. Replace placeholder preview/export UX with verified behavior.
 6. Draft backend/auth/sync architecture before community implementation.

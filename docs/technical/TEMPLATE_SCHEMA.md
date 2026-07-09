@@ -5,6 +5,11 @@ the iPhone app. Templates are bundled with the app as static data for MVP; sync
 may later deliver versioned template updates, but project creation must not
 depend on a network request.
 
+The executable sources of truth are:
+
+- `ios/OneBlockCinema/Resources/FilmTemplateV1.schema.json`
+- `ios/OneBlockCinema/Resources/FilmTemplates.json`
+
 ## Contract
 
 | Field | Type | Required | Notes |
@@ -12,11 +17,16 @@ depend on a network request.
 | `id` | string | Yes | Stable kebab-case identifier, unique across bundled and synced templates. |
 | `schemaVersion` | integer | Yes | Starts at `1`; increment only for breaking contract changes. |
 | `title` | string | Yes | User-facing template name. |
+| `subtitle` | string | Yes | Short picker description. |
 | `outcome` | string | Yes | Plain-language promise of the completed short. |
+| `theme` | enum | Yes | Visual family: `noir`, `romance`, `documentary`, `horror`, or `dream`. |
+| `difficulty` | enum | Yes | `beginner` or `intermediate`. |
 | `aspectRatio` | enum | Yes | One of `9:16`, `1:1`, `16:9`, `4:5`. |
 | `durationTargetSeconds` | object | Yes | `{ "min": number, "ideal": number, "max": number }`; max must be `<= 180`. |
+| `tags` | array | Yes | Local discovery and editorial tags. |
 | `shotPrompts` | array | Yes | Ordered prompts; each item has an offline-stable id, direction, hint, icon, and target seconds. |
 | `guidance` | object | Yes | Beginner coaching for structure, capture, assembly, and export. |
+| `assembly` | object | Yes | Default pacing, edit style, and ambient soundtrack preference. |
 
 ### `durationTargetSeconds`
 
@@ -30,6 +40,8 @@ depend on a network request.
 | --- | --- | --- | --- |
 | `id` | string | Yes | Stable within the template, e.g. `opening-shadow`. |
 | `index` | integer | Yes | Zero-based ordering for capture and assembly. |
+| `title` | string | Yes | Short step title. |
+| `structureRole` | string | Yes | Narrative job performed by the shot. |
 | `direction` | string | Yes | Primary instruction shown to the creator. |
 | `hint` | string | Yes | Beginner-friendly coaching detail. |
 | `icon` | string | Yes | Bundled SF Symbol name; no remote image dependency. |
@@ -44,6 +56,14 @@ depend on a network request.
 | `assembly` | string | Yes | Edit-order and pacing guidance. |
 | `export` | string | Yes | Aspect ratio, duration, and sharing guidance. |
 
+### `assembly`
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `pacingStyle` | enum | Yes | `quick_cuts`, `slow_cinema`, or `rhythmic`. |
+| `editStyle` | enum | Yes | `standard`, `silent_film`, or `voiceover_diary`. |
+| `useAmbientSoundtrack` | boolean | Yes | Default audio-bed preference. |
+
 ## Offline compatibility rules
 
 - Template records must be self-contained: no remote images, media URLs, feature
@@ -55,83 +75,6 @@ depend on a network request.
 - Later synced templates must be additive or versioned; they must not invalidate
   existing local drafts.
 
-## Example template
+## Production catalog
 
-```json
-{
-  "id": "noir-shadow-mystery",
-  "schemaVersion": 1,
-  "title": "Noir Shadow Mystery",
-  "outcome": "A tense 60-second mystery built from shadows, clues, and one unresolved ending.",
-  "aspectRatio": "9:16",
-  "durationTargetSeconds": {
-    "min": 45,
-    "ideal": 60,
-    "max": 75
-  },
-  "shotPrompts": [
-    {
-      "id": "long-shadow",
-      "index": 0,
-      "direction": "Film an establishing shot of the longest shadow you can find.",
-      "hint": "Look for dramatic light sources casting elongated forms.",
-      "icon": "building.2.fill",
-      "targetSeconds": 8
-    },
-    {
-      "id": "pattern-evidence",
-      "index": 1,
-      "direction": "Find a repeating pattern and shoot it like evidence.",
-      "hint": "Grids, lines, tiles — anything that suggests order or obsession.",
-      "icon": "square.grid.3x3.fill",
-      "targetSeconds": 8
-    },
-    {
-      "id": "ordinary-hands",
-      "index": 2,
-      "direction": "Capture hands doing something ordinary.",
-      "hint": "The way someone holds a cup, checks a phone, or fidgets with keys can imply a story.",
-      "icon": "hand.raised.fill",
-      "targetSeconds": 7
-    },
-    {
-      "id": "ominous-sound",
-      "index": 3,
-      "direction": "Record 5 seconds of the most ominous ambient sound nearby.",
-      "hint": "Traffic drone, wind through an alley, a distant siren, or an empty room tone all work.",
-      "icon": "waveform",
-      "targetSeconds": 5
-    },
-    {
-      "id": "secret-object",
-      "index": 4,
-      "direction": "Shoot one object like it holds a dark secret.",
-      "hint": "Get close. Make something mundane look like a clue.",
-      "icon": "magnifyingglass",
-      "targetSeconds": 7
-    },
-    {
-      "id": "distorted-reflection",
-      "index": 5,
-      "direction": "Film a reflection in glass, water, or metal.",
-      "hint": "Distorted doubles suggest hidden truths.",
-      "icon": "drop.fill",
-      "targetSeconds": 8
-    },
-    {
-      "id": "retreat-ending",
-      "index": 6,
-      "direction": "End with a slow retreat from the scene.",
-      "hint": "Walk away. Let the camera drift backward into darkness.",
-      "icon": "arrow.backward",
-      "targetSeconds": 10
-    }
-  ],
-  "guidance": {
-    "structure": "Open with place, build suspicion through details, then leave one unanswered question.",
-    "capture": "Hold each shot steady, use available contrast, and avoid explaining the mystery with dialogue.",
-    "assembly": "Cut from wide to detail to reflection, using the ambient sound as the mood bed.",
-    "export": "Export vertical 9:16 at about one minute; trim before export if the assembly exceeds 75 seconds."
-  }
-}
-```
+See `ios/OneBlockCinema/Resources/FilmTemplates.json` for complete examples that are decoded and displayed by the application.

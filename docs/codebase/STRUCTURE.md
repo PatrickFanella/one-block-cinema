@@ -13,7 +13,8 @@
 
 ## Product content
 
-- `docs/product/templates/` — production-shaped launch template data and template field requirements.
+- `ios/OneBlockCinema/Resources/FilmTemplates.json` — the single bundled catalog of 10 production templates.
+- `ios/OneBlockCinema/Resources/FilmTemplateV1.schema.json` — the versioned machine-readable template contract.
 
 ## iOS app
 

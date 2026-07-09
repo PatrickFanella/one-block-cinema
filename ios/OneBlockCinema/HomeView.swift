@@ -3,7 +3,7 @@ import SwiftUI
 struct HomeView: View {
     @Bindable var viewModel: FilmSessionViewModel
     @State private var appeared: Bool = false
-    @State private var selectedTheme: FilmTheme?
+    @State private var selectedTemplate: FilmTemplate?
 
     var body: some View {
         ScrollView {
@@ -51,7 +51,8 @@ struct HomeView: View {
     private func continueSessionCard(_ session: FilmSession) -> some View {
         Button {
             viewModel.resumeSession(session)
-            selectedTheme = session.theme
+            selectedTemplate = session.templateId.flatMap(TemplateCatalog.template(id:))
+                ?? TemplateCatalog.template(for: session.theme)
         } label: {
             HStack(spacing: 16) {
                 ZStack {
@@ -94,14 +95,14 @@ struct HomeView: View {
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 15)
         .animation(.spring(response: 0.5).delay(0.1), value: appeared)
-        .navigationDestination(item: $selectedTheme) { theme in
+        .navigationDestination(item: $selectedTemplate) { _ in
             ShotSequenceView(viewModel: viewModel)
         }
     }
 
     private var themeSectionHeader: some View {
         HStack {
-            Text("Choose Your Genre")
+            Text("Choose Your Story")
                 .font(.system(.title3, design: .serif, weight: .semibold))
                 .foregroundStyle(CinemaColors.warmWhite)
             Spacer()
@@ -112,10 +113,10 @@ struct HomeView: View {
 
     private var themeCards: some View {
         VStack(spacing: 14) {
-            ForEach(Array(FilmTheme.allCases.enumerated()), id: \.element.id) { index, theme in
-                ThemeCard(theme: theme) {
-                    viewModel.startNewSession(theme: theme)
-                    selectedTheme = theme
+            ForEach(Array(TemplateCatalog.launchTemplates.enumerated()), id: \.element.id) { index, template in
+                TemplateCard(template: template) {
+                    viewModel.startNewSession(template: template)
+                    selectedTemplate = template
                 }
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 20)
@@ -125,9 +126,11 @@ struct HomeView: View {
     }
 }
 
-struct ThemeCard: View {
-    let theme: FilmTheme
+struct TemplateCard: View {
+    let template: FilmTemplate
     let action: () -> Void
+
+    private var theme: FilmTheme { template.theme }
 
     var body: some View {
         Button(action: action) {
@@ -154,12 +157,21 @@ struct ThemeCard: View {
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(theme.displayName)
+                    Text(template.displayName)
                         .font(.system(.headline, design: .serif))
                         .foregroundStyle(CinemaColors.warmWhite)
-                    Text(theme.subtitle)
+                    Text(template.subtitle)
                         .font(.caption)
                         .foregroundStyle(CinemaColors.dimText)
+                        .lineLimit(2)
+
+                    HStack(spacing: 8) {
+                        Label(template.aspectRatio.rawValue, systemImage: "aspectratio")
+                        Label("\(template.durationTarget.targetSeconds)s", systemImage: "timer")
+                        Label("\(template.shotCount) shots", systemImage: "film.stack")
+                    }
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(theme.accentColor.opacity(0.8))
                 }
 
                 Spacer()
@@ -172,6 +184,6 @@ struct ThemeCard: View {
             .background(CinemaColors.surface)
             .clipShape(.rect(cornerRadius: 16))
         }
-        .sensoryFeedback(.impact(flexibility: .soft), trigger: theme.id)
+        .sensoryFeedback(.impact(flexibility: .soft), trigger: template.id)
     }
 }

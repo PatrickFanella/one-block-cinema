@@ -1,22 +1,8 @@
 # Launch Templates
 
-Production-shaped film templates live here as data before they are expanded into the in-app template catalog.
+The production template catalog is bundled directly with the iOS application:
 
-## Required template fields
+- [`FilmTemplates.json`](../../../ios/OneBlockCinema/Resources/FilmTemplates.json) — all 10 launch templates.
+- [`FilmTemplateV1.schema.json`](../../../ios/OneBlockCinema/Resources/FilmTemplateV1.schema.json) — the versioned JSON Schema contract.
 
-Each template must include:
-
-- `schemaVersion`
-- `id`
-- `title`
-- `outcome`
-- `durationTargetSeconds.min`, `durationTargetSeconds.ideal`, and `durationTargetSeconds.max`
-- `aspectRatio`
-- `shotPrompts[]` with `id`, `title`, `structureRole`, `direction`, `hint`, and `targetSeconds`
-- `guidance.structure`, `guidance.capture`, `guidance.assembly`, and `guidance.export`
-
-Duration targets must stay within the MVP 1–3 minute cap.
-
-## Current vertical-slice template
-
-- [`first-block-story.json`](first-block-story.json) — a beginner-friendly one-block micro-documentary that teaches beginning/middle/end structure through seven smartphone shots.
+Keeping the only catalog copy in the app prevents documentation data from drifting away from executable behavior. `python3 scripts/validate_templates.py` validates catalog count, stable ids, prompt ordering, duration bounds, guidance, and assembly defaults.

@@ -59,16 +59,27 @@ class FilmSessionViewModel {
     }
 
     func startNewSession(theme: FilmTheme) {
-        createDraft(theme: theme)
+        createDraft(template: TemplateCatalog.template(for: theme))
+    }
+
+    func startNewSession(template: FilmTemplate) {
+        createDraft(template: template)
     }
 
     @discardableResult
     func createDraft(theme: FilmTheme) -> FilmSession {
-        let template = TemplateCatalog.template(for: theme)
+        createDraft(template: TemplateCatalog.template(for: theme))
+    }
+
+    @discardableResult
+    func createDraft(template: FilmTemplate) -> FilmSession {
         let prompts = PromptGenerator.generatePrompts(for: template)
         let session = FilmSession(
-            theme: theme,
+            theme: template.theme,
             templateId: template.id,
+            templateSchemaVersion: template.schemaVersion,
+            templateTitle: template.title,
+            templateOutcome: template.outcome,
             aspectRatio: template.aspectRatio,
             durationTarget: template.durationTarget,
             assemblyGuidance: template.assemblyGuidance,

@@ -39,7 +39,7 @@ struct ShotSequenceView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Text(theme.displayName.uppercased())
+                Text((session?.templateTitle ?? theme.displayName).uppercased())
                     .font(.system(.caption, design: .monospaced, weight: .bold))
                     .tracking(3)
                     .foregroundStyle(theme.accentColor)

@@ -85,7 +85,7 @@ struct MyFilmsView: View {
                         .lineLimit(1)
 
                     HStack(spacing: 8) {
-                        Label(session.theme.displayName, systemImage: session.theme.icon)
+                        Label(session.templateTitle ?? session.theme.displayName, systemImage: session.theme.icon)
                             .font(.caption2)
                             .foregroundStyle(session.theme.accentColor)
 

@@ -60,7 +60,7 @@ Help users plan, import clips, assemble, export, share, and get feedback on temp
 - Template records are bundled for offline local use; created projects snapshot the prompts and guidance needed to resume without network access.
 - Contract: `docs/technical/TEMPLATE_SCHEMA.md`.
 - Output length depends on template but must not exceed 180 seconds in v1.
-- First production-shaped vertical-slice template: [`First Block Story`](templates/first-block-story.json), a 9:16 beginner micro-documentary with a 60–120 second duration target.
+- First production-shaped vertical-slice template: `First Block Story` in the bundled [`FilmTemplates.json`](../../ios/OneBlockCinema/Resources/FilmTemplates.json), a 9:16 beginner micro-documentary with a 60–120 second duration target.
 
 ## Community model
 

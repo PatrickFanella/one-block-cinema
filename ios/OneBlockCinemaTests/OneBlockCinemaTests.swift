@@ -40,6 +40,25 @@ struct OneBlockCinemaTests {
         }
     }
 
+    @Test func bundledCatalogContainsTenValidatedTemplates() throws {
+        let templates = TemplateCatalog.launchTemplates
+
+        #expect(templates.count == 10)
+        #expect(Set(templates.map(\.id)).count == 10)
+        #expect(templates.allSatisfy { $0.schemaVersion == 1 })
+        #expect(templates.allSatisfy { $0.durationTarget.fitsV1Maximum })
+        #expect(templates.allSatisfy { $0.shotPrompts.map(\.index) == Array(0..<$0.shotCount) })
+        #expect(templates.flatMap(\.shotPrompts).allSatisfy { !$0.id.isEmpty && $0.targetSeconds > 0 })
+    }
+
+    @Test func sessionPromptsPreserveTemplateIdentityAndTiming() throws {
+        let template = try #require(TemplateCatalog.template(id: "first-block-story"))
+        let prompts = PromptGenerator.generatePrompts(for: template)
+
+        #expect(prompts.map(\.templateShotId) == template.shotPrompts.map(\.id))
+        #expect(prompts.map(\.targetSeconds) == template.shotPrompts.map(\.targetSeconds))
+    }
+
     @Test func filmSessionReportsProgressForHappyAndEmptyStates() {
         let completePrompt = ShotPrompt(index: 0, direction: "Wide", hint: "Set the scene", icon: "camera", isCompleted: true)
         let incompletePrompt = ShotPrompt(index: 1, direction: "Detail", hint: "Move closer", icon: "eye")
@@ -66,6 +85,9 @@ struct OneBlockCinemaTests {
 
         let draft = try #require(viewModel.activeSession)
         #expect(draft.theme == .noir)
+        #expect(draft.templateId == "noir-shadow-mystery")
+        #expect(draft.templateSchemaVersion == 1)
+        #expect(draft.templateTitle == "Noir Shadow Mystery")
         #expect(draft.completedAt == nil)
         #expect(!draft.prompts.isEmpty)
         #expect(viewModel.currentPromptIndex == 0)
