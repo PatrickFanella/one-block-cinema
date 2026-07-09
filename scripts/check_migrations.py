@@ -68,6 +68,9 @@ required_fragments = (
     "idempotency_key",
     "moderation_status = 'approved'",
     "teen_has_no_external_url",
+    "mux_asset_id",
+    "moderation_jobs_account_deletion_user_idx",
+    "on delete set null",
 )
 for fragment in required_fragments:
     if fragment not in sql:

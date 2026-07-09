@@ -206,17 +206,32 @@ export async function buildApp(dependencies: AppDependencies): Promise<FastifyIn
   app.delete("/v1/account", async (request, reply) => {
     const user = await requireUser(request, authenticate);
     const key = mutationKey(request);
+    if (!config.SUPABASE_SERVICE_ROLE_KEY) {
+      return reply.code(503).send({
+        error: "account_deletion_unconfigured",
+        message: "Account deletion is unavailable until server-side Auth cleanup is configured",
+        requestId: request.id,
+      });
+    }
     const queued = await store.idempotent(user.id, key, "delete_account", {}, async (client) => {
       const result = await client.query<{ id: string }>(
         `insert into public.moderation_jobs (kind, status, subject_user_id)
-         values ('account_deletion', 'queued', $1) returning id`,
+         values ('account_deletion', 'queued', $1)
+         on conflict (subject_user_id)
+           where kind = 'account_deletion' and subject_user_id is not null
+         do update set status = 'queued', failure_code = null, updated_at = now()
+         returning id`,
         [user.id],
       );
       const row = result.rows[0];
       if (!row) throw new Error("Failed to queue account deletion");
       return row;
     });
-    const jobId = await jobs.send(queueNames.deleteAccount, { userId: user.id }, queued.id);
+    const jobId = await jobs.send(
+      queueNames.deleteAccount,
+      { userId: user.id, deletionJobId: queued.id },
+      queued.id,
+    );
     return sendAccepted(reply, jobId);
   });
 

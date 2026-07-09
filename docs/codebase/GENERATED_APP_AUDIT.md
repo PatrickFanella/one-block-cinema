@@ -33,6 +33,7 @@ This audit compares the generated iOS app shell with the MVP promise in `docs/pr
 - Authentication is missing, including email OTP, Google, and Apple sign-in (`docs/product/PRD.md:24`, `docs/product/PRD.md:70-75`, `docs/product/MVP_SCOPE.md:9-14`).
 - User-editable profiles are missing (`docs/product/PRD.md:61-68`, `docs/product/MVP_SCOPE.md:11-14`).
 - Backend activation is missing: Fastify routes, worker queues, RLS schema, and the moderation console compile, but no environment or iOS auth/sync client is connected (`backend/`, `supabase/`, `moderation-console/`).
+- Server account deletion now has durable, retry-safe Supabase Storage/Mux/Auth cleanup and fails closed for Apple identities; native deletion UX, Apple revocation, and staging verification remain missing (`backend/src/account-deletion.ts`, `docs/runbooks/ACCOUNT_DELETION.md`).
 - Project/draft/profile/comment/challenge sync is missing (`docs/product/PRD.md:31`, `docs/product/PRD.md:70-75`, `docs/technical/API_SPEC.md:58-63`).
 - Publish and private-until-publish flows are missing (`docs/product/PRD.md:52-53`, `docs/product/MVP_SCOPE.md:39-40`, `docs/technical/API_SPEC.md:9-13`).
 - Daily/weekly challenges are missing (`docs/product/PRD.md:32`, `docs/product/PRD.md:61-68`, `docs/product/MVP_SCOPE.md:41`).

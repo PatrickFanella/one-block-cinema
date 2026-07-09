@@ -44,7 +44,7 @@ Challenge discovery returns only active challenges and approved public submissio
 
 ### Account and critique
 
-- `DELETE /v1/account` — creates a durable deletion operation; external auth/storage revocation remains a release-blocking worker step.
+- `DELETE /v1/account` — creates/requeues one durable deletion operation. The worker removes private Supabase Storage objects and Mux assets before deleting the Supabase Auth user, retains job status across the cascade, and fails closed for Apple identities until token revocation is configured.
 - `POST /v1/critiques` — returns `503` while `FEATURE_AI_COACH=false`. No AI provider call is implemented or configured.
 
 ## Database safety
@@ -61,6 +61,6 @@ Challenge discovery returns only active challenges and approved public submissio
 
 - Configure separate development, staging, and production Supabase projects.
 - Complete Mux direct-upload issuance and signed playback.
-- Complete account deletion across Storage, Auth, Mux, and Sign in with Apple revocation.
+- Complete Sign in with Apple token capture/revocation and exercise the Storage/Auth/Mux deletion worker end to end in staging.
 - Exercise the SQL migration and RLS tests against disposable Supabase instances.
 - Keep AI critique disabled until its separate consent, provider, safety, and evaluation gates are implemented.

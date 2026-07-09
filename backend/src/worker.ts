@@ -1,5 +1,12 @@
 import { Pool } from "pg";
 import type { Job } from "pg-boss";
+import {
+  executeAccountDeletion,
+  MuxAssetDeletionProvider,
+  PostgresAccountDeletionRepository,
+  SupabaseAuthDeletionProvider,
+  SupabaseStorageDeletionProvider,
+} from "./account-deletion.js";
 import { loadConfig } from "./config.js";
 import { queueNames, startBoss } from "./jobs.js";
 
@@ -15,6 +22,7 @@ interface MuxWebhookData {
 
 interface AccountDeletionData {
   userId: string;
+  deletionJobId: string;
 }
 
 interface CritiqueJobData {
@@ -24,6 +32,16 @@ interface CritiqueJobData {
 const config = loadConfig();
 const pool = new Pool({ connectionString: config.DATABASE_URL, max: 4 });
 const boss = await startBoss(config.DATABASE_URL);
+const accountDeletionRepository = new PostgresAccountDeletionRepository(pool);
+const storageDeletionProvider = config.SUPABASE_SERVICE_ROLE_KEY
+  ? new SupabaseStorageDeletionProvider(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY)
+  : null;
+const authDeletionProvider = config.SUPABASE_SERVICE_ROLE_KEY
+  ? new SupabaseAuthDeletionProvider(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY)
+  : null;
+const muxDeletionProvider = config.MUX_TOKEN_ID && config.MUX_TOKEN_SECRET
+  ? new MuxAssetDeletionProvider(config.MUX_TOKEN_ID, config.MUX_TOKEN_SECRET)
+  : null;
 
 await boss.work<ModerationJobData>(queueNames.moderatePublication, async (jobs: Job<ModerationJobData>[]) => {
   const job = jobs[0];
@@ -52,11 +70,13 @@ await boss.work<MuxWebhookData>(queueNames.muxWebhook, async (jobs: Job<MuxWebho
   const playbackId = typeof firstPlayback?.id === "string" ? firstPlayback.id : null;
 
   if (job.data.type === "video.asset.ready" && uploadId && playbackId) {
+    const assetId = typeof job.data.data.id === "string" ? job.data.data.id : null;
     await pool.query(
       `update public.publications
-          set mux_playback_id = $2, processing_status = 'ready', updated_at = now()
+          set mux_playback_id = $2, mux_asset_id = $3,
+              processing_status = 'ready', updated_at = now()
         where mux_upload_id = $1`,
-      [uploadId, playbackId],
+      [uploadId, playbackId, assetId],
     );
   } else if (job.data.type === "video.asset.errored" && uploadId) {
     await pool.query(
@@ -71,11 +91,16 @@ await boss.work<MuxWebhookData>(queueNames.muxWebhook, async (jobs: Job<MuxWebho
 await boss.work<AccountDeletionData>(queueNames.deleteAccount, async (jobs: Job<AccountDeletionData>[]) => {
   const job = jobs[0];
   if (!job) return;
-  await pool.query(
-    `update public.moderation_jobs
-        set status = 'awaiting_external_cleanup', updated_at = now()
-      where kind = 'account_deletion' and subject_user_id = $1 and status = 'queued'`,
-    [job.data.userId],
+  await executeAccountDeletion(
+    job.data.deletionJobId,
+    job.data.userId,
+    accountDeletionRepository,
+    {
+      storage: storageDeletionProvider,
+      mux: muxDeletionProvider,
+      auth: authDeletionProvider,
+      apple: null,
+    },
   );
 });
 

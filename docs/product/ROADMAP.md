@@ -35,13 +35,14 @@ Implemented foundation:
 
 - Provider-neutral auth/sync/community protocols, revision state, non-destructive recovered-copy conflict policy, Fastify API, pg-boss worker, Supabase schema/RLS, private storage policies, and environment/deployment runbook.
 - Fail-closed iOS environment/feature configuration, a validated local-only Apple privacy manifest, and draft privacy, terms, support, retention, and App Store disclosure artifacts.
+- A retry-safe account-deletion worker removes private Supabase Storage data and Mux assets before Auth deletion, retains durable audit status, and blocks Apple accounts until revocation is available.
 
 Remaining:
 
 - Provision separate development/staging/production Supabase and Fly environments.
 - Connect native OTP/Apple/Google auth and Keychain session storage.
 - Build opt-in project/original-media sync with resumable checksummed transfer and visible retry state.
-- Complete profile, export, logout/revocation, in-app account deletion, approve/finalize legal placeholders, backups, restore drills, rate limits, abuse protection, observability, and incident runbooks.
+- Complete profile, export, logout/session revocation, native deletion UX, Sign in with Apple revocation, approve/finalize legal placeholders, backups, restore drills, rate limits, abuse protection, observability, and remaining incident runbooks.
 - Ship with community flags disabled.
 
 ## 1.1 Community — curated challenges

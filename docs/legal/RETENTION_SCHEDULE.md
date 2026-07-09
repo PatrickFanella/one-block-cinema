@@ -16,4 +16,4 @@ Status: operational draft — counsel and processor-contract review required.
 | AI critique result | Until user/project deletion or explicit result deletion | Relevant deletion action | Per-film consent record retained only as legally necessary. |
 | Backups | `[BACKUP WINDOW]` | Scheduled expiry after primary deletion | Restore process must preserve tombstones. |
 
-Account deletion must revoke sessions and Apple tokens, remove or irreversibly anonymize associated UGC as policy requires, delete private media and playback access, enqueue provider cleanup, and expose retry/audit status. The current server worker records external cleanup as pending; that is not a completed deletion implementation.
+Account deletion must revoke sessions and Apple tokens, remove or irreversibly anonymize associated UGC as policy requires, delete private media and playback access, and expose retry/audit status. The worker now performs retry-safe Supabase Storage, Mux, and Auth cleanup; Apple token capture/revocation and a staging deletion drill remain release gates.
