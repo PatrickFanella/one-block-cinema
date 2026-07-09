@@ -44,7 +44,9 @@ DerivedData/
 *.xcuserstate
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
+**/*.xcodeproj/xcuserdata/
 *.xcodeproj/project.xcworkspace/xcuserdata/
+**/*.xcodeproj/project.xcworkspace/xcuserdata/
 *.xcscmblueprint
 
 # Databases

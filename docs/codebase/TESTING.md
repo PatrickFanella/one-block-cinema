@@ -18,11 +18,23 @@ Current Linux baseline:
 
 ## Xcode testing
 
-Future macOS runner command:
+macOS simulator command:
 
 ```bash
-xcodebuild test -project ios/OneBlockCinema.xcodeproj -scheme OneBlockCinema -destination 'platform=iOS Simulator,name=iPhone 16'
+xcodebuild test -project ios/OneBlockCinema.xcodeproj -scheme OneBlockCinema -destination 'platform=iOS Simulator,name=iPhone 17' CODE_SIGNING_ALLOWED=NO
 ```
+
+Use `xcodebuild -showdestinations -project ios/OneBlockCinema.xcodeproj -scheme OneBlockCinema` if that simulator is not installed.
+
+## Physical iPhone testing
+
+1. Open `ios/OneBlockCinema.xcodeproj` in Xcode.
+2. Select the `OneBlockCinema` app target.
+3. In Signing & Capabilities, select a development team for the app target.
+4. Keep automatic signing enabled.
+5. Select the connected iPhone as the run destination and press Run.
+
+The project currently has no committed development team. Keep personal signing state local unless release automation needs a shared team configuration.
 
 ## Test priorities
 
