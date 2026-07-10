@@ -63,6 +63,20 @@ struct MediaRenderIntegrationTests {
         let naturalSize = try await videoTrack.load(.naturalSize)
         let audioTracks = try await asset.loadTracks(withMediaType: .audio)
         let fileSize = try outputURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+        let titleFrame = try await MediaFixtureFactory.frame(from: asset, at: 0.5)
+        let intertitleFrame = try await MediaFixtureFactory.frame(from: asset, at: 1.25)
+        let titleBand = MediaFixtureFactory.averageRGB(
+            titleFrame,
+            normalizedRect: CGRect(x: 0.08, y: 0.78, width: 0.84, height: 0.12)
+        )
+        let videoArea = MediaFixtureFactory.averageRGB(
+            titleFrame,
+            normalizedRect: CGRect(x: 0.08, y: 0.3, width: 0.84, height: 0.2)
+        )
+        let intertitleArea = MediaFixtureFactory.averageRGB(
+            intertitleFrame,
+            normalizedRect: CGRect(x: 0, y: 0, width: 1, height: 1)
+        )
 
         #expect(outputURL.pathExtension == "mp4")
         #expect(fileSize > 1000)
@@ -70,6 +84,8 @@ struct MediaRenderIntegrationTests {
         #expect(naturalSize == CGSize(width: 1920, height: 1080))
         #expect(!audioTracks.isEmpty)
         #expect(plan.intertitleCues.count == 1)
+        #expect(titleBand.luminance < videoArea.luminance * 0.75)
+        #expect(intertitleArea.luminance < 0.2)
     }
 
     @Test func rejectsCorruptMediaWithAnActionableFailure() async throws {
@@ -190,6 +206,53 @@ private enum MediaFixtureFactory {
         let file = try AVAudioFile(forWriting: url, settings: format.settings)
         try file.write(from: buffer)
         return url
+    }
+
+    static func frame(from asset: AVAsset, at seconds: TimeInterval) async throws -> CGImage {
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.requestedTimeToleranceBefore = .zero
+        generator.requestedTimeToleranceAfter = .zero
+        return try await generator.image(at: CMTime(seconds: seconds, preferredTimescale: 600)).image
+    }
+
+    static func averageRGB(_ image: CGImage, normalizedRect: CGRect) -> RGBSample {
+        let rect = CGRect(
+            x: normalizedRect.minX * CGFloat(image.width),
+            y: normalizedRect.minY * CGFloat(image.height),
+            width: normalizedRect.width * CGFloat(image.width),
+            height: normalizedRect.height * CGFloat(image.height)
+        ).integral
+        guard let cropped = image.cropping(to: rect) else { return .zero }
+        var pixel = [UInt8](repeating: 0, count: 4)
+        guard let context = CGContext(
+            data: &pixel,
+            width: 1,
+            height: 1,
+            bitsPerComponent: 8,
+            bytesPerRow: 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return .zero }
+        context.interpolationQuality = .high
+        context.draw(cropped, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+        return RGBSample(
+            red: Double(pixel[0]) / 255,
+            green: Double(pixel[1]) / 255,
+            blue: Double(pixel[2]) / 255
+        )
+    }
+}
+
+private struct RGBSample {
+    let red: Double
+    let green: Double
+    let blue: Double
+
+    static let zero = RGBSample(red: 0, green: 0, blue: 0)
+
+    var luminance: Double {
+        red * 0.2126 + green * 0.7152 + blue * 0.0722
     }
 }
 
