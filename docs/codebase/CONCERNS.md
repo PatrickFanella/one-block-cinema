@@ -4,8 +4,8 @@
 
 - Focused audit: `docs/codebase/GENERATED_APP_AUDIT.md` documents implemented, partial, missing, and overpromised behavior with file references and P0 blockers.
 - Generated app is not production complete.
-- Camera capture compiles with permission recovery and import fallback, but physical-device rotation, interruption, thermal, focus, stabilization, and audio QA remain outstanding.
-- Preview and export now share one render plan with durable interruption checkpoints; generated mixed-orientation/silent/project-audio fixtures exercise actual encoded output, while representative-device, background-expiration, HDR, and variable-frame-rate QA remain outstanding. iOS 26.5 Simulator traps inside Apple's Core Animation video postprocessor, so simulator builds intentionally omit title/intertitle text overlays and the silent-film tint while preserving the base timeline.
+- Camera capture now has permission recovery, interruption/reset/device-connection recovery, storage and thermal policies, safe partial-file validation, scene suspension, and import fallback. Physical-device rotation, focus, stabilization, audio, and injected-condition qualification remain outstanding.
+- Preview and export share one custom Core Image compositor and durable interruption checkpoints. Generated fixtures verify mixed orientation, title/intertitle pixels, silent treatment, project audio, HDR-to-SDR Rec.709, VFR-to-30-fps output, corrupt media, background expiration, cancellation, and retry. The iPhone qualification checklist remains outstanding.
 - Durable trim/reorder, cuts/crossfades, clip titles, standalone intertitles, project voiceover/ambient tracks, and standard/silent-film looks now feed preview and export, but need physical-device accessibility and representative-media validation.
 - Ten templates now load from a versioned bundled catalog; editorial, device, and accessibility QA remain incomplete.
 - Core screens now respect Reduce Motion/Transparency and expose improved Dynamic Type, VoiceOver, and keyboard behavior; physical-device assistive-technology, contrast, Voice Control, pseudolocalization, and right-to-left audits remain release gates.
@@ -20,7 +20,7 @@
 
 ## Verification gaps
 
-- Simulator unit tests cover templates, project lifecycle, persistence/migration/recovery, edit/render plans, actual mixed-orientation/project-audio MP4 output, corrupt media, local data export/deletion, and sync conflict/outbox behavior; UI smoke tests cover launch, accessibility text size, template discovery, and Settings controls. HDR/VFR output and physical-device behavior remain untested.
+- Simulator tests cover templates, project lifecycle, persistence/migration/recovery, edit/render plans, mixed-orientation/project-audio MP4 output, overlays, silent treatment, HDR/VFR normalization, corrupt media, export recovery, local data export/deletion, and sync conflict/outbox behavior. Hardware-dependent behavior still requires the documented iPhone qualification.
 - SwiftFormat and strict SwiftLint pass with zero violations; both tools must be installed for local checks and remain required on the macOS CI runner.
 - Linux baseline cannot run Xcode tests.
 
@@ -29,5 +29,5 @@
 1. Run camera/import prompt attachment on the oldest supported iPhone and representative modern devices.
 2. Verify all 10 templates end-to-end with representative media and device accessibility QA.
 3. Add deterministic camera interruption and low-storage recovery tests.
-4. Exercise trim/order persistence and render output with mixed-orientation, HDR, variable-frame-rate, silent, and corrupt fixtures.
+4. Complete and record the iPhone 16 Plus qualification without identifiers or private media.
 5. Connect native auth and project sync only after disposable-environment RLS tests pass.

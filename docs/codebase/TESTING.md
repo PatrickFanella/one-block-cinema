@@ -31,7 +31,7 @@ Use `xcodebuild -showdestinations -project ios/OneBlockCinema.xcodeproj -scheme 
 
 `MediaRenderIntegrationTests` generates short landscape and portrait H.264 sources plus project audio at runtime. It renders the shared production composition, inspects the resulting 1080p MP4 duration/video/audio tracks, and verifies corrupt media is rejected with an actionable app error. No private or committed binary fixtures are required.
 
-The iOS 26.5 Simulator traps inside Apple's Core Animation video postprocessor. Simulator exports therefore test the complete base composition, while title/intertitle text overlays and the silent-film tint remain a required physical-iPhone check.
+Preview and export use the custom Core Image `CinemaVideoCompositor`; simulator integration tests cover title/intertitle pixels, silent-film treatment, crossfades, HDR-to-SDR Rec.709 normalization, and variable-frame-rate input without the former Core Animation postprocessor path.
 
 ## Backend testing
 
@@ -55,6 +55,8 @@ Apple allows personal on-device testing without a paid Developer Program members
 6. Connect and trust the iPhone, select it as the run destination, and press Run.
 
 The project intentionally has no committed development team, so Personal Team details remain local. Apple's free workflow is for personal testing, supports a limited number of devices/App IDs, and requires periodic reprovisioning (currently every seven days). It cannot upload to TestFlight or the App Store. See Apple's [membership comparison](https://developer.apple.com/support/compare-memberships/) and [device-running guide](https://developer.apple.com/documentation/Xcode/running-your-app-on-simulated-or-physical-devices).
+
+Use `make ios-device-qa` with local `OBC_DEVELOPMENT_TEAM` and `OBC_DEVICE_ID` values to build, install, and launch the DEBUG-only fault panel. Follow [DEVICE_QUALIFICATION.md](DEVICE_QUALIFICATION.md); never commit the local identifiers or captured media.
 
 ## Unsigned release archive
 

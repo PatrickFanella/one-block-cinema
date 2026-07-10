@@ -15,7 +15,7 @@ Implemented foundations:
 
 Remaining gates:
 
-- Expand fixtures to HDR and variable-frame-rate sources and verify background expiration behavior on physical devices.
+- Complete the documented iPhone 16 Plus camera, lifecycle, storage, thermal, HDR/VFR, and export-recovery qualification.
 - Verify all templates end to end on physical devices.
 
 ## 0.5 External TestFlight — filmmaking toolkit

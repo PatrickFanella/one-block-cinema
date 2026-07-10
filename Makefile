@@ -5,7 +5,7 @@ SHELL := /usr/bin/env bash
 # is keg-only, so include its versioned opt path for pnpm-backed checks.
 export PATH := /opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:$(PATH)
 
-.PHONY: help verify fmt lint test ios-build ios-test archive-check docs-check templates-check privacy-check release-config-check migrations-check backend-check open-pilot-check secrets-check xcode-note
+.PHONY: help verify fmt lint test ios-build ios-test ios-device-qa archive-check docs-check templates-check privacy-check release-config-check migrations-check backend-check open-pilot-check secrets-check xcode-note
 
 help: ## Show commands
 	@awk 'BEGIN {FS = ":.*##"; printf "Commands:\n"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -39,6 +39,9 @@ ios-build: ## Compile the app and all test bundles without signing
 ios-test: ## Execute tests on the first available iPhone simulator
 	@scripts/xcode_test.sh
 
+ios-device-qa: ## Build, install, and launch DEBUG QA on a locally configured iPhone
+	@scripts/xcode_device_qa.sh
+
 archive-check: ## Create an unsigned archive to validate release packaging
 	@xcodebuild archive -project ios/OneBlockCinema.xcodeproj -scheme OneBlockCinema -destination 'generic/platform=iOS' -archivePath build/OneBlockCinema.xcarchive CODE_SIGNING_ALLOWED=NO
 	@python3 scripts/check_release_config.py --archive build/OneBlockCinema.xcarchive
@@ -53,6 +56,7 @@ docs-check: ## Verify required docs exist
 	@test -f docs/product/MVP_SCOPE.md
 	@test -f docs/technical/API_SPEC.md
 	@test -f docs/codebase/STACK.md
+	@test -f docs/codebase/DEVICE_QUALIFICATION.md
 	@test -f docs/legal/PRIVACY_POLICY.md
 	@test -f docs/legal/TERMS.md
 	@test -f docs/legal/SUPPORT.md

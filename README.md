@@ -44,6 +44,8 @@ With Node 22 and pnpm 11 installed, it also typechecks and tests the backend and
 
 On macOS, `make ios-test` executes the simulator suite and `make archive-check` validates an unsigned Release archive. A free Xcode Personal Team can install the app on your own iPhone for physical testing; TestFlight and App Store distribution require paid Apple Developer Program membership.
 
+For the local physical qualification build, set `OBC_DEVELOPMENT_TEAM` and `OBC_DEVICE_ID` only in your shell and run `make ios-device-qa`. The repeatable checklist is in [`docs/codebase/DEVICE_QUALIFICATION.md`](docs/codebase/DEVICE_QUALIFICATION.md).
+
 ## Key docs
 
 - Product: `docs/product/PRD.md`
