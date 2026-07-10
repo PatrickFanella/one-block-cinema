@@ -1,15 +1,16 @@
 SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 
-# Codex and some launchd shells omit Homebrew's Apple Silicon prefix.
-export PATH := /opt/homebrew/bin:$(PATH)
+# Codex and some launchd shells omit Homebrew's Apple Silicon prefix. Node 22
+# is keg-only, so include its versioned opt path for pnpm-backed checks.
+export PATH := /opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:$(PATH)
 
-.PHONY: help verify fmt lint test ios-build ios-test archive-check docs-check templates-check privacy-check migrations-check backend-check open-pilot-check secrets-check xcode-note
+.PHONY: help verify fmt lint test ios-build ios-test archive-check docs-check templates-check privacy-check release-config-check migrations-check backend-check open-pilot-check secrets-check xcode-note
 
 help: ## Show commands
 	@awk 'BEGIN {FS = ":.*##"; printf "Commands:\n"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-verify: fmt lint test docs-check templates-check privacy-check migrations-check backend-check open-pilot-check secrets-check xcode-note ## Run all checks
+verify: fmt lint test docs-check templates-check privacy-check release-config-check migrations-check backend-check open-pilot-check secrets-check xcode-note ## Run all checks
 
 fmt: ## Format files where repo tooling is available
 	@if command -v swiftformat >/dev/null 2>&1; then \
@@ -40,6 +41,7 @@ ios-test: ## Execute tests on the first available iPhone simulator
 
 archive-check: ## Create an unsigned archive to validate release packaging
 	@xcodebuild archive -project ios/OneBlockCinema.xcodeproj -scheme OneBlockCinema -destination 'generic/platform=iOS' -archivePath build/OneBlockCinema.xcarchive CODE_SIGNING_ALLOWED=NO
+	@python3 scripts/check_release_config.py --archive build/OneBlockCinema.xcarchive
 
 docs-check: ## Verify required docs exist
 	@test -f README.md
@@ -64,6 +66,9 @@ templates-check: ## Validate product template data
 
 privacy-check: ## Validate the bundled Apple privacy manifest
 	@python3 scripts/check_privacy_manifest.py
+
+release-config-check: ## Validate credential-free Release and feature settings
+	@python3 scripts/check_release_config.py
 
 migrations-check: ## Validate required tables and RLS coverage
 	@python3 scripts/check_migrations.py

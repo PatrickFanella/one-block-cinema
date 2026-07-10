@@ -29,6 +29,10 @@ xcodebuild test -project ios/OneBlockCinema.xcodeproj -scheme OneBlockCinema -de
 
 Use `xcodebuild -showdestinations -project ios/OneBlockCinema.xcodeproj -scheme OneBlockCinema` if that simulator is not installed.
 
+`MediaRenderIntegrationTests` generates short landscape and portrait H.264 sources plus project audio at runtime. It renders the shared production composition, inspects the resulting 1080p MP4 duration/video/audio tracks, and verifies corrupt media is rejected with an actionable app error. No private or committed binary fixtures are required.
+
+The iOS 26.5 Simulator traps inside Apple's Core Animation video postprocessor. Simulator exports therefore test the complete base composition, while title/intertitle text overlays and the silent-film tint remain a required physical-iPhone check.
+
 ## Backend testing
 
 ```bash
@@ -41,13 +45,26 @@ The static migration gate does not replace disposable-project RLS integration te
 
 ## Physical iPhone testing
 
-1. Open `ios/OneBlockCinema.xcodeproj` in Xcode.
-2. Select the `OneBlockCinema` app target.
-3. In Signing & Capabilities, select a development team for the app target.
-4. Keep automatic signing enabled.
-5. Select the connected iPhone as the run destination and press Run.
+Apple allows personal on-device testing without a paid Developer Program membership. Sign in to Xcode with a normal Apple Account; Xcode labels the resulting free signing identity as a **Personal Team**.
 
-The project currently has no committed development team. Keep personal signing state local unless release automation needs a shared team configuration.
+1. Open `ios/OneBlockCinema.xcodeproj` in Xcode.
+2. Open **Xcode > Settings > Accounts**, add the Apple Account, and accept any requested developer agreement.
+3. Select the `OneBlockCinema` app target.
+4. In **Signing & Capabilities**, select the account's Personal Team and keep automatic signing enabled.
+5. If Xcode reports that the bundle identifier is unavailable, change it locally to a unique reverse-domain identifier.
+6. Connect and trust the iPhone, select it as the run destination, and press Run.
+
+The project intentionally has no committed development team, so Personal Team details remain local. Apple's free workflow is for personal testing, supports a limited number of devices/App IDs, and requires periodic reprovisioning (currently every seven days). It cannot upload to TestFlight or the App Store. See Apple's [membership comparison](https://developer.apple.com/support/compare-memberships/) and [device-running guide](https://developer.apple.com/documentation/Xcode/running-your-app-on-simulated-or-physical-devices).
+
+## Unsigned release archive
+
+No Apple account is needed to validate Release packaging locally:
+
+```bash
+make archive-check
+```
+
+This creates `build/OneBlockCinema.xcarchive` without signing, then verifies the archived privacy manifest, production environment, disabled cloud features, and encryption declaration. Signing and distribution remain separate paid-account gates.
 
 ## Test priorities
 

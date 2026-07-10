@@ -42,6 +42,8 @@ Linux verification currently checks repo structure/docs/Open Pilot templates and
 
 With Node 22 and pnpm 11 installed, it also typechecks and tests the backend and moderation console. Install dependencies with `pnpm install --frozen-lockfile`.
 
+On macOS, `make ios-test` executes the simulator suite and `make archive-check` validates an unsigned Release archive. A free Xcode Personal Team can install the app on your own iPhone for physical testing; TestFlight and App Store distribution require paid Apple Developer Program membership.
+
 ## Key docs
 
 - Product: `docs/product/PRD.md`
