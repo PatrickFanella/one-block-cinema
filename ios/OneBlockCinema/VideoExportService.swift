@@ -351,7 +351,7 @@ nonisolated enum RenderCompositionBuilder {
         guard insertedSegments.count == plan.segments.count else {
             throw ExportError.incompleteExport
         }
-        extendVideoTracks(videoTracks, to: plan.totalDuration)
+        extendVideoTracks(insertedSegments.map(\.track), to: plan.totalDuration)
         try await insertProjectAudio(
             plan.audioTracks,
             into: composition,
@@ -359,6 +359,10 @@ nonisolated enum RenderCompositionBuilder {
             timelineDuration: plan.totalDuration,
             muted: plan.editStyle == .silentFilm
         )
+        audioParameters = audioParameters.filter { parameters in
+            composition.track(withTrackID: parameters.trackID)?
+                .segments.contains(where: { !$0.isEmpty }) == true
+        }
         let compositionSegments = insertedSegments.map {
             CinemaCompositionSegment(
                 segment: $0.segment,
@@ -526,6 +530,36 @@ actor VideoExportService: RenderService {
             try FileManager.default.removeItem(at: outputURL)
         }
 
+        do {
+            try await performExport(prepared: prepared, to: outputURL, progress: progress)
+        } catch is CancellationError {
+            try? FileManager.default.removeItem(at: outputURL)
+            throw CancellationError()
+        } catch {
+            try? FileManager.default.removeItem(at: outputURL)
+            if Self.isTransientVideoToolboxFailure(error) {
+                try await Task.sleep(for: .seconds(1))
+                do {
+                    try await performExport(prepared: prepared, to: outputURL, progress: progress)
+                    progress(1)
+                    return outputURL
+                } catch {
+                    try? FileManager.default.removeItem(at: outputURL)
+                    throw mappedExportError(error, plan: plan)
+                }
+            }
+            throw mappedExportError(error, plan: plan)
+        }
+
+        progress(1)
+        return outputURL
+    }
+
+    private func performExport(
+        prepared: PreparedRender,
+        to outputURL: URL,
+        progress: @escaping @Sendable (Double) -> Void
+    ) async throws {
         guard let exportSession = AVAssetExportSession(
             asset: prepared.composition,
             presetName: AVAssetExportPreset1920x1080
@@ -537,7 +571,6 @@ actor VideoExportService: RenderService {
         exportSession.shouldOptimizeForNetworkUse = true
         activeExportSession = exportSession
         var thermalCancellation = false
-
         let progressTask = Task {
             for await state in exportSession.states(updateInterval: 0.1) {
                 guard !Task.isCancelled else { return }
@@ -555,33 +588,38 @@ actor VideoExportService: RenderService {
             progressTask.cancel()
             activeExportSession = nil
         }
-
         do {
             try await exportSession.export(to: outputURL, as: .mp4)
-        } catch is CancellationError {
-            try? FileManager.default.removeItem(at: outputURL)
-            if thermalCancellation {
-                throw ExportError.criticalThermalState
-            }
-            throw CancellationError()
         } catch {
-            try? FileManager.default.removeItem(at: outputURL)
             if thermalCancellation {
                 throw ExportError.criticalThermalState
             }
-            if Self.isOutOfSpace(error) {
-                throw ExportError.insufficientStorage(
-                    requiredMegabytes: Int(storagePolicy.requiredExportBytes(duration: plan.totalDuration) / StorageBudgetPolicy.mebibyte),
-                    availableMegabytes: 0
-                )
-            }
-            let nsError = error as NSError
-            let detail = nsError.userInfo[NSUnderlyingErrorKey].map { " (\($0))" } ?? ""
-            throw ExportError.exportFailed("\(nsError.domain) \(nsError.code): \(nsError.localizedDescription)\(detail)")
+            throw error
         }
+    }
 
-        progress(1)
-        return outputURL
+    private func mappedExportError(_ error: Error, plan: RenderPlan) -> ExportError {
+        if let exportError = error as? ExportError {
+            return exportError
+        }
+        if Self.isOutOfSpace(error) {
+            return ExportError.insufficientStorage(
+                requiredMegabytes: Int(storagePolicy.requiredExportBytes(duration: plan.totalDuration) / StorageBudgetPolicy.mebibyte),
+                availableMegabytes: 0
+            )
+        }
+        let nsError = error as NSError
+        let detail = nsError.userInfo[NSUnderlyingErrorKey].map { " (\($0))" } ?? ""
+        return ExportError.exportFailed("\(nsError.domain) \(nsError.code): \(nsError.localizedDescription)\(detail)")
+    }
+
+    private static func isTransientVideoToolboxFailure(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        if nsError.domain == NSOSStatusErrorDomain, nsError.code == -16976 {
+            return true
+        }
+        guard let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? Error else { return false }
+        return isTransientVideoToolboxFailure(underlying)
     }
 
     func cancelCurrentRender() async {

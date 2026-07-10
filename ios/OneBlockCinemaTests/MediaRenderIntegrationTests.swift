@@ -6,6 +6,55 @@ import VideoToolbox
 
 @Suite(.serialized)
 struct MediaRenderIntegrationTests {
+    @Test func normalizesHDRSourceToRec709H264() async throws {
+        let directory = try MediaFixtureFactory.makeDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let hdrURL = try await MediaFixtureFactory.makeVideo(
+            at: directory.appendingPathComponent("hdr.mov"),
+            size: CGSize(width: 640, height: 360),
+            duration: 1,
+            color: 0xFFE8_9220,
+            codec: .hevc,
+            hdr: true
+        )
+        let clip = FilmClip(promptId: UUID(), fileURL: hdrURL, duration: 1)
+        try await Task.sleep(for: .seconds(1))
+        let outputURL = try await VideoExportService().render(plan: VideoExportLimits.plan(for: [clip]))
+        defer { try? FileManager.default.removeItem(at: outputURL) }
+
+        let output = AVURLAsset(url: outputURL)
+        let track = try #require(try await output.loadTracks(withMediaType: .video).first)
+        let format = try #require(try await track.load(.formatDescriptions).first)
+        let extensions = try #require(CMFormatDescriptionGetExtensions(format)) as NSDictionary
+
+        #expect(CMFormatDescriptionGetMediaSubType(format) == kCMVideoCodecType_H264)
+        #expect(try await abs(track.load(.nominalFrameRate) - 30) < 0.1)
+        #expect(extensions[kCMFormatDescriptionExtension_ColorPrimaries] as? String == kCVImageBufferColorPrimaries_ITU_R_709_2 as String)
+        #expect(extensions[kCMFormatDescriptionExtension_TransferFunction] as? String == kCVImageBufferTransferFunction_ITU_R_709_2 as String)
+    }
+
+    @Test func normalizesVariableFrameRateSourceToThirtyFPS() async throws {
+        let directory = try MediaFixtureFactory.makeDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let frameTimes: [TimeInterval] = [0, 1.0 / 24, 1.0 / 12, 0.18, 0.31, 0.47, 0.7, 0.95]
+        let sourceURL = try await MediaFixtureFactory.makeVideo(
+            at: directory.appendingPathComponent("vfr.mp4"),
+            size: CGSize(width: 640, height: 360),
+            duration: 1,
+            color: 0xFF20_92E8,
+            frameTimes: frameTimes
+        )
+        let clip = FilmClip(promptId: UUID(), fileURL: sourceURL, duration: 1)
+        try await Task.sleep(for: .seconds(1))
+        let outputURL = try await VideoExportService().render(plan: VideoExportLimits.plan(for: [clip]))
+        defer { try? FileManager.default.removeItem(at: outputURL) }
+
+        let output = AVURLAsset(url: outputURL)
+        let track = try #require(try await output.loadTracks(withMediaType: .video).first)
+        #expect(try await abs(track.load(.nominalFrameRate) - 30) < 0.1)
+        #expect(try await abs(CMTimeGetSeconds(output.load(.duration)) - 1) < 0.1)
+    }
+
     @Test func exportsMixedOrientationVideoIntertitleAndProjectAudio() async throws {
         let directory = try MediaFixtureFactory.makeDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -103,34 +152,6 @@ struct MediaRenderIntegrationTests {
             #expect(error.errorDescription?.contains("not readable") == true)
         }
     }
-
-    @Test func normalizesHDRAndVariableFrameRateSourcesToRec709H264AtThirtyFPS() async throws {
-        let directory = try MediaFixtureFactory.makeDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let frameTimes: [TimeInterval] = [0, 1.0 / 24, 1.0 / 12, 0.18, 0.31, 0.47, 0.7]
-        let sourceURL = try await MediaFixtureFactory.makeVideo(
-            at: directory.appendingPathComponent("hdr-vfr.mov"),
-            size: CGSize(width: 640, height: 360),
-            duration: 0.8,
-            color: 0xFFE8_9220,
-            codec: .hevc,
-            hdr: true,
-            frameTimes: frameTimes
-        )
-        let clip = FilmClip(promptId: UUID(), fileURL: sourceURL, duration: 0.8)
-        let outputURL = try await VideoExportService().render(plan: VideoExportLimits.plan(for: [clip]))
-        defer { try? FileManager.default.removeItem(at: outputURL) }
-
-        let output = AVURLAsset(url: outputURL)
-        let track = try #require(try await output.loadTracks(withMediaType: .video).first)
-        let format = try #require(try await track.load(.formatDescriptions).first)
-        let extensions = try #require(CMFormatDescriptionGetExtensions(format)) as NSDictionary
-
-        #expect(CMFormatDescriptionGetMediaSubType(format) == kCMVideoCodecType_H264)
-        #expect(try await abs(track.load(.nominalFrameRate) - 30) < 0.1)
-        #expect(extensions[kCMFormatDescriptionExtension_ColorPrimaries] as? String == kCVImageBufferColorPrimaries_ITU_R_709_2 as String)
-        #expect(extensions[kCMFormatDescriptionExtension_TransferFunction] as? String == kCVImageBufferTransferFunction_ITU_R_709_2 as String)
-    }
 }
 
 private enum MediaFixtureFactory {
@@ -181,7 +202,8 @@ private enum MediaFixtureFactory {
             sourcePixelBufferAttributes: [
                 kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
                 kCVPixelBufferWidthKey as String: Int(size.width),
-                kCVPixelBufferHeightKey as String: Int(size.height)
+                kCVPixelBufferHeightKey as String: Int(size.height),
+                kCVPixelBufferIOSurfacePropertiesKey as String: [:]
             ]
         )
         guard writer.canAdd(input) else { throw MediaFixtureError.cannotCreateVideo }

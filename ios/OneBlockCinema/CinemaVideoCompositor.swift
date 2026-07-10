@@ -58,8 +58,12 @@ final nonisolated class CinemaCompositionInstruction: NSObject, AVVideoCompositi
 
 final nonisolated class CinemaVideoCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
     let sourcePixelBufferAttributes: [String: any Sendable]? = [
-        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-        kCVPixelBufferMetalCompatibilityKey as String: true
+        kCVPixelBufferPixelFormatTypeKey as String: [
+            kCVPixelFormatType_32BGRA,
+            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+            kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange
+        ],
+        kCVPixelBufferIOSurfacePropertiesKey as String: [:]
     ]
     // swiftlint:disable:next identifier_name
     let requiredPixelBufferAttributesForRenderContext: [String: any Sendable] = [
