@@ -20,8 +20,8 @@
 
 ## Verification gaps
 
-- Unit tests cover template/prompt/session basics and persistence migration/recovery, but do not yet cover real media import/export or UI behavior.
-- Swift lint/format configuration exists; the tools remain optional locally and required on the macOS CI runner.
+- Simulator unit tests cover templates, project lifecycle, persistence/migration/recovery, edit/render plans, local data export/deletion, and sync conflict/outbox behavior; UI smoke tests cover launch, accessibility text size, template discovery, and Settings controls. Real-media render output and physical-device behavior remain untested.
+- SwiftFormat and strict SwiftLint pass with zero violations; both tools must be installed for local checks and remain required on the macOS CI runner.
 - Linux baseline cannot run Xcode tests.
 
 ## Suggested first issues

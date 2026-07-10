@@ -1,6 +1,9 @@
 SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 
+# Codex and some launchd shells omit Homebrew's Apple Silicon prefix.
+export PATH := /opt/homebrew/bin:$(PATH)
+
 .PHONY: help verify fmt lint test ios-build ios-test archive-check docs-check templates-check privacy-check migrations-check backend-check open-pilot-check secrets-check xcode-note
 
 help: ## Show commands

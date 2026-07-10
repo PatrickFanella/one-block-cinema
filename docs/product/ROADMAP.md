@@ -4,7 +4,7 @@
 
 Implemented foundations:
 
-- Deterministic portable/macOS CI, check-only SwiftFormat/SwiftLint, unsigned archive validation, and Fastlane release lanes.
+- Deterministic portable/macOS CI, zero-violation check-only SwiftFormat/SwiftLint, executed simulator unit/UI smoke tests, unsigned archive validation, and Fastlane release lanes.
 - Ten versioned, schema-validated bundled templates.
 - GRDB projects/clips, relative media paths, idempotent legacy migration, missing-media recovery records, and durable sync outbox.
 - My Films identifies missing source clips, routes directly to replacement capture/import, and safely reclaims stale unreferenced media after an in-flight grace period.
@@ -14,7 +14,6 @@ Implemented foundations:
 
 Remaining gates:
 
-- Execute simulator tests after repairing the host CoreSimulator mismatch.
 - Add representative media fixtures and verify background expiration behavior on physical devices.
 - Verify all templates end to end on physical devices.
 
