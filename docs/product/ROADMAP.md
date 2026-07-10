@@ -10,11 +10,12 @@ Implemented foundations:
 - My Films identifies missing source clips, routes directly to replacement capture/import, and safely reclaims stale unreferenced media after an in-flight grace period.
 - Durable render checkpoints, an iOS background execution window, and relaunch recovery keep interrupted exports visible and retryable without mutating the draft.
 - Real AVPlayer preview and cancellable, orientation-normalized 1080p-class MP4 export from one `RenderPlan` with audio preservation, disk checks, and the 180-second cap.
+- Self-generated AVFoundation fixtures execute mixed-orientation H.264 export with intertitles and looping project audio, inspect the encoded MP4, and verify corrupt media produces an actionable failure.
 - Import-first fallback remains fully offline and account-free.
 
 Remaining gates:
 
-- Add representative media fixtures and verify background expiration behavior on physical devices.
+- Expand fixtures to HDR and variable-frame-rate sources and verify background expiration behavior on physical devices.
 - Verify all templates end to end on physical devices.
 
 ## 0.5 External TestFlight — filmmaking toolkit

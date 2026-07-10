@@ -244,6 +244,13 @@ nonisolated enum RenderCompositionBuilder {
         let transform: CGAffineTransform
     }
 
+    private struct LoadedVideoSource {
+        let duration: CMTime
+        let track: AVAssetTrack
+        let naturalSize: CGSize
+        let preferredTransform: CGAffineTransform
+    }
+
     static func build(plan: RenderPlan) async throws -> PreparedRender {
         guard !plan.segments.isEmpty else {
             throw ExportError.noExportableClips
@@ -279,23 +286,20 @@ nonisolated enum RenderCompositionBuilder {
             }
 
             let asset = AVURLAsset(url: clip.fileURL)
-            let assetDuration = try await asset.load(.duration)
+            let source = try await loadVideoSource(asset: asset, clipName: clip.fileURL.lastPathComponent)
             let sourceStart = CMTime(seconds: segment.sourceStart, preferredTimescale: 600)
             let plannedDuration = CMTime(seconds: segment.duration, preferredTimescale: 600)
-            let availableDuration = CMTimeSubtract(assetDuration, sourceStart)
+            let availableDuration = CMTimeSubtract(source.duration, sourceStart)
             let duration = CMTimeMinimum(plannedDuration, availableDuration)
             guard duration.isValid, CMTimeGetSeconds(duration) > 0 else {
                 throw ExportError.invalidClip(clip.fileURL.lastPathComponent)
             }
 
-            guard let sourceVideoTrack = try await asset.loadTracks(withMediaType: .video).first else {
-                throw ExportError.invalidClip(clip.fileURL.lastPathComponent)
-            }
             let timeRange = CMTimeRange(start: sourceStart, duration: duration)
             let insertionTime = CMTime(seconds: segment.timelineStart, preferredTimescale: 600)
             let trackIndex = index % videoTracks.count
             let videoTrack = videoTracks[trackIndex]
-            try videoTrack.insertTimeRange(timeRange, of: sourceVideoTrack, at: insertionTime)
+            try videoTrack.insertTimeRange(timeRange, of: source.track, at: insertionTime)
 
             if audioTracks.indices.contains(trackIndex),
                let sourceAudioTrack = try await asset.loadTracks(withMediaType: .audio).first
@@ -332,15 +336,13 @@ nonisolated enum RenderCompositionBuilder {
                 }
             }
 
-            let naturalSize = try await sourceVideoTrack.load(.naturalSize)
-            let preferredTransform = try await sourceVideoTrack.load(.preferredTransform)
             insertedSegments.append(
                 InsertedVideoSegment(
                     segment: segment,
                     track: videoTrack,
                     transform: normalizedTransform(
-                        naturalSize: naturalSize,
-                        preferredTransform: preferredTransform,
+                        naturalSize: source.naturalSize,
+                        preferredTransform: source.preferredTransform,
                         renderSize: plan.outputDimensions.size
                     )
                 )
@@ -375,6 +377,28 @@ nonisolated enum RenderCompositionBuilder {
             audioMix = mix
         }
         return PreparedRender(composition: composition, videoComposition: videoComposition, audioMix: audioMix)
+    }
+
+    private static func loadVideoSource(
+        asset: AVURLAsset,
+        clipName: String
+    ) async throws -> LoadedVideoSource {
+        do {
+            let duration = try await asset.load(.duration)
+            guard let track = try await asset.loadTracks(withMediaType: .video).first else {
+                throw ExportError.invalidClip(clipName)
+            }
+            return try await LoadedVideoSource(
+                duration: duration,
+                track: track,
+                naturalSize: track.load(.naturalSize),
+                preferredTransform: track.load(.preferredTransform)
+            )
+        } catch let error as ExportError {
+            throw error
+        } catch {
+            throw ExportError.invalidClip(clipName)
+        }
     }
 
     private static func extendVideoTracks(
@@ -504,85 +528,92 @@ nonisolated enum RenderCompositionBuilder {
             || !plan.titleCues.isEmpty
             || !plan.intertitleCues.isEmpty else { return }
 
-        let frame = CGRect(origin: .zero, size: plan.outputDimensions.size)
-        let parentLayer = CALayer()
-        let videoLayer = CALayer()
-        parentLayer.frame = frame
-        videoLayer.frame = frame
-        parentLayer.addSublayer(videoLayer)
+        #if targetEnvironment(simulator)
+            // iOS 26.5 Simulator traps inside FigCoreAnimationRenderer when an
+            // AVVideoCompositionCoreAnimationTool tries to create its IOSurface.
+            // Keep simulator exports useful while real devices render overlays.
+            return
+        #else
 
-        if plan.editStyle == .silentFilm {
-            let tintLayer = CALayer()
-            tintLayer.frame = frame
-            tintLayer.backgroundColor = CGColor(red: 0.42, green: 0.28, blue: 0.08, alpha: 0.18)
-            parentLayer.addSublayer(tintLayer)
-        }
+            let frame = CGRect(origin: .zero, size: plan.outputDimensions.size)
+            let parentLayer = CALayer()
+            let videoLayer = CALayer()
+            parentLayer.frame = frame
+            videoLayer.frame = frame
+            parentLayer.addSublayer(videoLayer)
 
-        for cue in plan.titleCues {
-            let titleLayer = CATextLayer()
-            titleLayer.string = cue.text
-            titleLayer.alignmentMode = .center
-            titleLayer.foregroundColor = CGColor(gray: 1, alpha: 1)
-            titleLayer.backgroundColor = CGColor(gray: 0, alpha: 0.72)
-            titleLayer.cornerRadius = max(10, frame.width * 0.012)
-            titleLayer.contentsScale = 2
-            titleLayer.fontSize = max(28, frame.width * 0.045)
-            titleLayer.isWrapped = true
-            titleLayer.frame = CGRect(
-                x: frame.width * 0.08,
-                y: frame.height * 0.08,
-                width: frame.width * 0.84,
-                height: frame.height * 0.12
+            if plan.editStyle == .silentFilm {
+                let tintLayer = CALayer()
+                tintLayer.frame = frame
+                tintLayer.contents = RenderOverlayImageFactory.make(
+                    size: frame.size,
+                    backgroundColor: CGColor(red: 0.42, green: 0.28, blue: 0.08, alpha: 0.18)
+                )
+                parentLayer.addSublayer(tintLayer)
+            }
+
+            for cue in plan.titleCues {
+                let titleRect = CGRect(
+                    x: frame.width * 0.08,
+                    y: frame.height * 0.08,
+                    width: frame.width * 0.84,
+                    height: frame.height * 0.12
+                )
+                let titleLayer = CALayer()
+                titleLayer.frame = frame
+                titleLayer.contents = RenderOverlayImageFactory.make(
+                    size: frame.size,
+                    backgroundColor: CGColor(gray: 0, alpha: 0.72),
+                    backgroundRect: titleRect,
+                    cornerRadius: max(10, frame.width * 0.012),
+                    text: cue.text,
+                    textColor: CGColor(gray: 1, alpha: 1),
+                    fontSize: max(28, frame.width * 0.045),
+                    textRect: titleRect.insetBy(dx: frame.width * 0.025, dy: frame.height * 0.015)
+                )
+                titleLayer.opacity = 0
+
+                let opacity = CAKeyframeAnimation(keyPath: "opacity")
+                opacity.values = [0, 1, 1, 0]
+                opacity.keyTimes = [0, 0.08, 0.82, 1]
+                opacity.duration = max(0.1, cue.duration)
+                opacity.beginTime = AVCoreAnimationBeginTimeAtZero + cue.timelineStart
+                opacity.isRemovedOnCompletion = false
+                opacity.fillMode = .both
+                titleLayer.add(opacity, forKey: "title-opacity-\(cue.clipId.uuidString)")
+                parentLayer.addSublayer(titleLayer)
+            }
+
+            for cue in plan.intertitleCues {
+                let textRect = CGRect(
+                    x: frame.width * 0.1,
+                    y: frame.height * 0.32,
+                    width: frame.width * 0.8,
+                    height: frame.height * 0.36
+                )
+                let intertitleLayer = CALayer()
+                intertitleLayer.frame = frame
+                intertitleLayer.contents = RenderOverlayImageFactory.make(
+                    size: frame.size,
+                    backgroundColor: CGColor(gray: 0.02, alpha: 1),
+                    text: cue.text,
+                    textColor: CGColor(gray: 0.96, alpha: 1),
+                    fontSize: max(42, frame.width * 0.065),
+                    textRect: textRect
+                )
+                intertitleLayer.opacity = 0
+                intertitleLayer.add(
+                    intertitleOpacityAnimation(start: cue.timelineStart, duration: cue.duration),
+                    forKey: "intertitle-\(cue.id.uuidString)"
+                )
+                parentLayer.addSublayer(intertitleLayer)
+            }
+
+            videoComposition.animationTool = AVVideoCompositionCoreAnimationTool(
+                postProcessingAsVideoLayer: videoLayer,
+                in: parentLayer
             )
-            titleLayer.opacity = 0
-
-            let opacity = CAKeyframeAnimation(keyPath: "opacity")
-            opacity.values = [0, 1, 1, 0]
-            opacity.keyTimes = [0, 0.08, 0.82, 1]
-            opacity.duration = max(0.1, cue.duration)
-            opacity.beginTime = AVCoreAnimationBeginTimeAtZero + cue.timelineStart
-            opacity.isRemovedOnCompletion = false
-            opacity.fillMode = .both
-            titleLayer.add(opacity, forKey: "title-opacity-\(cue.clipId.uuidString)")
-            parentLayer.addSublayer(titleLayer)
-        }
-
-        for cue in plan.intertitleCues {
-            let backgroundLayer = CALayer()
-            backgroundLayer.frame = frame
-            backgroundLayer.backgroundColor = CGColor(gray: 0.02, alpha: 1)
-            backgroundLayer.opacity = 0
-            backgroundLayer.add(
-                intertitleOpacityAnimation(start: cue.timelineStart, duration: cue.duration),
-                forKey: "intertitle-background-\(cue.id.uuidString)"
-            )
-            parentLayer.addSublayer(backgroundLayer)
-
-            let textLayer = CATextLayer()
-            textLayer.string = cue.text
-            textLayer.alignmentMode = .center
-            textLayer.foregroundColor = CGColor(gray: 0.96, alpha: 1)
-            textLayer.contentsScale = 2
-            textLayer.fontSize = max(42, frame.width * 0.065)
-            textLayer.isWrapped = true
-            textLayer.frame = CGRect(
-                x: frame.width * 0.1,
-                y: frame.height * 0.32,
-                width: frame.width * 0.8,
-                height: frame.height * 0.36
-            )
-            textLayer.opacity = 0
-            textLayer.add(
-                intertitleOpacityAnimation(start: cue.timelineStart, duration: cue.duration),
-                forKey: "intertitle-text-\(cue.id.uuidString)"
-            )
-            parentLayer.addSublayer(textLayer)
-        }
-
-        videoComposition.animationTool = AVVideoCompositionCoreAnimationTool(
-            postProcessingAsVideoLayer: videoLayer,
-            in: parentLayer
-        )
+        #endif
     }
 
     private static func intertitleOpacityAnimation(

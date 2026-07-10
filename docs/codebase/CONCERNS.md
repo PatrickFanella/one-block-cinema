@@ -5,7 +5,7 @@
 - Focused audit: `docs/codebase/GENERATED_APP_AUDIT.md` documents implemented, partial, missing, and overpromised behavior with file references and P0 blockers.
 - Generated app is not production complete.
 - Camera capture compiles with permission recovery and import fallback, but physical-device rotation, interruption, thermal, focus, stabilization, and audio QA remain outstanding.
-- Preview and export now share one render plan with durable interruption checkpoints, but representative-device, background-expiration, and HDR/variable-frame-rate fixture QA remain outstanding.
+- Preview and export now share one render plan with durable interruption checkpoints; generated mixed-orientation/silent/project-audio fixtures exercise actual encoded output, while representative-device, background-expiration, HDR, and variable-frame-rate QA remain outstanding. iOS 26.5 Simulator traps inside Apple's Core Animation video postprocessor, so simulator builds intentionally omit title/intertitle text overlays and the silent-film tint while preserving the base timeline.
 - Durable trim/reorder, cuts/crossfades, clip titles, standalone intertitles, project voiceover/ambient tracks, and standard/silent-film looks now feed preview and export, but need physical-device accessibility and representative-media validation.
 - Ten templates now load from a versioned bundled catalog; editorial, device, and accessibility QA remain incomplete.
 - Core screens now respect Reduce Motion/Transparency and expose improved Dynamic Type, VoiceOver, and keyboard behavior; physical-device assistive-technology, contrast, Voice Control, pseudolocalization, and right-to-left audits remain release gates.
@@ -20,7 +20,7 @@
 
 ## Verification gaps
 
-- Simulator unit tests cover templates, project lifecycle, persistence/migration/recovery, edit/render plans, local data export/deletion, and sync conflict/outbox behavior; UI smoke tests cover launch, accessibility text size, template discovery, and Settings controls. Real-media render output and physical-device behavior remain untested.
+- Simulator unit tests cover templates, project lifecycle, persistence/migration/recovery, edit/render plans, actual mixed-orientation/project-audio MP4 output, corrupt media, local data export/deletion, and sync conflict/outbox behavior; UI smoke tests cover launch, accessibility text size, template discovery, and Settings controls. HDR/VFR output and physical-device behavior remain untested.
 - SwiftFormat and strict SwiftLint pass with zero violations; both tools must be installed for local checks and remain required on the macOS CI runner.
 - Linux baseline cannot run Xcode tests.
 
