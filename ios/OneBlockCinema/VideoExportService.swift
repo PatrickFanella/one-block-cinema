@@ -490,6 +490,19 @@ nonisolated enum RenderCompositionBuilder {
 
 actor VideoExportService: RenderService {
     private var activeExportSession: AVAssetExportSession?
+    private let storageCapacityProvider: any StorageCapacityProviding
+    private let thermalStateProvider: any ThermalStateProviding
+    private let storagePolicy: StorageBudgetPolicy
+
+    init(
+        storageCapacityProvider: any StorageCapacityProviding = SystemStorageCapacityProvider(),
+        thermalStateProvider: any ThermalStateProviding = SystemThermalStateProvider(),
+        storagePolicy: StorageBudgetPolicy = StorageBudgetPolicy()
+    ) {
+        self.storageCapacityProvider = storageCapacityProvider
+        self.thermalStateProvider = thermalStateProvider
+        self.storagePolicy = storagePolicy
+    }
 
     func makePlan(for project: FilmProject) async throws -> RenderPlan {
         VideoExportLimits.plan(for: project)
@@ -499,6 +512,9 @@ actor VideoExportService: RenderService {
         plan: RenderPlan,
         progress: @escaping @Sendable (Double) -> Void = { _ in }
     ) async throws -> URL {
+        guard thermalStateProvider.thermalState != .critical else {
+            throw ExportError.criticalThermalState
+        }
         try checkAvailableDiskSpace(for: plan)
         progress(0.02)
         let prepared = try await RenderCompositionBuilder.build(plan: plan)
@@ -541,6 +557,12 @@ actor VideoExportService: RenderService {
             throw CancellationError()
         } catch {
             try? FileManager.default.removeItem(at: outputURL)
+            if Self.isOutOfSpace(error) {
+                throw ExportError.insufficientStorage(
+                    requiredMegabytes: Int(storagePolicy.requiredExportBytes(duration: plan.totalDuration) / StorageBudgetPolicy.mebibyte),
+                    availableMegabytes: 0
+                )
+            }
             let nsError = error as NSError
             let detail = nsError.userInfo[NSUnderlyingErrorKey].map { " (\($0))" } ?? ""
             throw ExportError.exportFailed("\(nsError.domain) \(nsError.code): \(nsError.localizedDescription)\(detail)")
@@ -555,17 +577,25 @@ actor VideoExportService: RenderService {
     }
 
     private func checkAvailableDiskSpace(for plan: RenderPlan) throws {
-        let values = try FileManager.default.temporaryDirectory.resourceValues(
-            forKeys: [.volumeAvailableCapacityForImportantUsageKey]
-        )
-        guard let available = values.volumeAvailableCapacityForImportantUsage else { return }
-        let minimumBytes = max(Int64(100 * 1024 * 1024), Int64(plan.totalDuration * 4 * 1024 * 1024))
+        guard let available = try storageCapacityProvider.availableCapacity(
+            at: FileManager.default.temporaryDirectory
+        ) else { return }
+        let minimumBytes = storagePolicy.requiredExportBytes(duration: plan.totalDuration)
         guard available >= minimumBytes else {
             throw ExportError.insufficientStorage(
-                requiredMegabytes: Int(minimumBytes / 1024 / 1024),
-                availableMegabytes: Int(available / 1024 / 1024)
+                requiredMegabytes: Int(minimumBytes / StorageBudgetPolicy.mebibyte),
+                availableMegabytes: Int(available / StorageBudgetPolicy.mebibyte)
             )
         }
+    }
+
+    private static func isOutOfSpace(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        if nsError.domain == NSCocoaErrorDomain, nsError.code == CocoaError.fileWriteOutOfSpace.rawValue {
+            return true
+        }
+        guard let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? Error else { return false }
+        return isOutOfSpace(underlying)
     }
 }
 
@@ -578,6 +608,7 @@ nonisolated enum ExportError: Error, LocalizedError, Sendable {
     case missingAudio(ProjectAudioTrackKind)
     case invalidAudio(ProjectAudioTrackKind)
     case incompleteExport
+    case criticalThermalState
     case insufficientStorage(requiredMegabytes: Int, availableMegabytes: Int)
     case exportFailed(String)
 
@@ -599,6 +630,8 @@ nonisolated enum ExportError: Error, LocalizedError, Sendable {
             "The \(kind.rawValue) audio file is not readable. Replace it in Assembly."
         case .incompleteExport:
             "Export stopped because one or more clips could not be included."
+        case .criticalThermalState:
+            "This device is too hot to start an export. Let it cool down, then try again."
         case let .insufficientStorage(required, available):
             "Export needs about \(required) MB free, but only \(available) MB is available."
         case let .exportFailed(message):

@@ -28,20 +28,25 @@ class FilmSessionViewModel {
     var localDataDeletionMessage: String?
 
     private let storage: SessionStorage
-    private let exportService = VideoExportService()
+    private let exportService: any RenderService
+    private let backgroundTaskManager: any BackgroundTaskManaging
     private let localDataExportService: LocalDataExportService
     private var pendingPersistenceTask: Task<Void, Never>?
     private var activeExportID: UUID?
-    private var backgroundTaskIdentifier: UIBackgroundTaskIdentifier = .invalid
+    private var backgroundTaskToken: BackgroundTaskToken = .invalid
     private var backgroundTaskExpiredExportID: UUID?
     private var didRecoverInterruptedRenders = false
 
     init(
         storage: SessionStorage = SessionStorage(),
-        localDataExportService: LocalDataExportService = LocalDataExportService()
+        localDataExportService: LocalDataExportService = LocalDataExportService(),
+        exportService: any RenderService = VideoExportService(),
+        backgroundTaskManager: (any BackgroundTaskManaging)? = nil
     ) {
         self.storage = storage
         self.localDataExportService = localDataExportService
+        self.exportService = exportService
+        self.backgroundTaskManager = backgroundTaskManager ?? ApplicationBackgroundTaskManager()
     }
 
     var currentPrompt: ShotPrompt? {
@@ -627,10 +632,8 @@ class FilmSessionViewModel {
     }
 
     private func beginBackgroundTask(for exportID: UUID) {
-        guard backgroundTaskIdentifier == .invalid else { return }
-        backgroundTaskIdentifier = UIApplication.shared.beginBackgroundTask(
-            withName: "OneBlockCinemaExport"
-        ) { [weak self] in
+        guard backgroundTaskToken == .invalid else { return }
+        backgroundTaskToken = backgroundTaskManager.begin(name: "OneBlockCinemaExport") { [weak self] in
             Task { @MainActor [weak self] in
                 await self?.interruptExportWhenBackgroundTimeExpires(exportID: exportID)
             }
@@ -650,9 +653,9 @@ class FilmSessionViewModel {
     }
 
     private func endBackgroundTask() {
-        guard backgroundTaskIdentifier != .invalid else { return }
-        UIApplication.shared.endBackgroundTask(backgroundTaskIdentifier)
-        backgroundTaskIdentifier = .invalid
+        guard backgroundTaskToken != .invalid else { return }
+        backgroundTaskManager.end(backgroundTaskToken)
+        backgroundTaskToken = .invalid
     }
 
     private func videoDuration(for url: URL) async throws -> TimeInterval {
