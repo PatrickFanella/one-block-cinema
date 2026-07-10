@@ -2,6 +2,7 @@ import AVFoundation
 import Foundation
 @testable import OneBlockCinema
 import Testing
+import VideoToolbox
 
 @Suite(.serialized)
 struct MediaRenderIntegrationTests {
@@ -102,6 +103,34 @@ struct MediaRenderIntegrationTests {
             #expect(error.errorDescription?.contains("not readable") == true)
         }
     }
+
+    @Test func normalizesHDRAndVariableFrameRateSourcesToRec709H264AtThirtyFPS() async throws {
+        let directory = try MediaFixtureFactory.makeDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let frameTimes: [TimeInterval] = [0, 1.0 / 24, 1.0 / 12, 0.18, 0.31, 0.47, 0.7]
+        let sourceURL = try await MediaFixtureFactory.makeVideo(
+            at: directory.appendingPathComponent("hdr-vfr.mov"),
+            size: CGSize(width: 640, height: 360),
+            duration: 0.8,
+            color: 0xFFE8_9220,
+            codec: .hevc,
+            hdr: true,
+            frameTimes: frameTimes
+        )
+        let clip = FilmClip(promptId: UUID(), fileURL: sourceURL, duration: 0.8)
+        let outputURL = try await VideoExportService().render(plan: VideoExportLimits.plan(for: [clip]))
+        defer { try? FileManager.default.removeItem(at: outputURL) }
+
+        let output = AVURLAsset(url: outputURL)
+        let track = try #require(try await output.loadTracks(withMediaType: .video).first)
+        let format = try #require(try await track.load(.formatDescriptions).first)
+        let extensions = try #require(CMFormatDescriptionGetExtensions(format)) as NSDictionary
+
+        #expect(CMFormatDescriptionGetMediaSubType(format) == kCMVideoCodecType_H264)
+        #expect(try await abs(track.load(.nominalFrameRate) - 30) < 0.1)
+        #expect(extensions[kCMFormatDescriptionExtension_ColorPrimaries] as? String == kCVImageBufferColorPrimaries_ITU_R_709_2 as String)
+        #expect(extensions[kCMFormatDescriptionExtension_TransferFunction] as? String == kCVImageBufferTransferFunction_ITU_R_709_2 as String)
+    }
 }
 
 private enum MediaFixtureFactory {
@@ -117,16 +146,34 @@ private enum MediaFixtureFactory {
         size: CGSize,
         duration: TimeInterval,
         color: UInt32,
-        frameRate: Int32 = 12
+        frameRate: Int32 = 12,
+        codec: AVVideoCodecType = .h264,
+        hdr: Bool = false,
+        frameTimes: [TimeInterval]? = nil
     ) async throws -> URL {
-        let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
+        var compression: [String: Any] = [:]
+        if hdr {
+            compression[AVVideoProfileLevelKey] = kVTProfileLevel_HEVC_Main10_AutoLevel
+        }
+        var settings: [String: Any] = [
+            AVVideoCodecKey: codec,
+            AVVideoWidthKey: Int(size.width),
+            AVVideoHeightKey: Int(size.height)
+        ]
+        if !compression.isEmpty {
+            settings[AVVideoCompressionPropertiesKey] = compression
+        }
+        if hdr {
+            settings[AVVideoColorPropertiesKey] = [
+                AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_2020,
+                AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_2100_HLG,
+                AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_2020
+            ]
+        }
+        let writer = try AVAssetWriter(outputURL: url, fileType: url.pathExtension == "mov" ? .mov : .mp4)
         let input = AVAssetWriterInput(
             mediaType: .video,
-            outputSettings: [
-                AVVideoCodecKey: AVVideoCodecType.h264,
-                AVVideoWidthKey: Int(size.width),
-                AVVideoHeightKey: Int(size.height)
-            ]
+            outputSettings: settings
         )
         input.expectsMediaDataInRealTime = false
         let adaptor = AVAssetWriterInputPixelBufferAdaptor(
@@ -143,9 +190,11 @@ private enum MediaFixtureFactory {
             throw writer.error ?? MediaFixtureError.cannotCreateVideo
         }
         writer.startSession(atSourceTime: .zero)
-        let frameCount = max(1, Int(ceil(duration * Double(frameRate))))
+        let presentationTimes = frameTimes ?? (0 ..< max(1, Int(ceil(duration * Double(frameRate))))).map {
+            Double($0) / Double(frameRate)
+        }
 
-        for frame in 0 ..< frameCount {
+        for seconds in presentationTimes {
             while !input.isReadyForMoreMediaData {
                 try await Task.sleep(for: .milliseconds(2))
             }
@@ -159,7 +208,7 @@ private enum MediaFixtureFactory {
                 throw MediaFixtureError.cannotCreatePixelBuffer
             }
             fill(buffer, with: color)
-            guard adaptor.append(buffer, withPresentationTime: CMTime(value: Int64(frame), timescale: frameRate)) else {
+            guard adaptor.append(buffer, withPresentationTime: CMTime(seconds: seconds, preferredTimescale: 600)) else {
                 throw writer.error ?? MediaFixtureError.cannotCreateVideo
             }
         }

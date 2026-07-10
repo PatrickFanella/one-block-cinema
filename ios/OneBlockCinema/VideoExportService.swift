@@ -541,7 +541,9 @@ actor VideoExportService: RenderService {
             throw CancellationError()
         } catch {
             try? FileManager.default.removeItem(at: outputURL)
-            throw ExportError.exportFailed(error.localizedDescription)
+            let nsError = error as NSError
+            let detail = nsError.userInfo[NSUnderlyingErrorKey].map { " (\($0))" } ?? ""
+            throw ExportError.exportFailed("\(nsError.domain) \(nsError.code): \(nsError.localizedDescription)\(detail)")
         }
 
         progress(1)
