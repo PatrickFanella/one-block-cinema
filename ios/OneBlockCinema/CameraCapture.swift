@@ -67,8 +67,8 @@ final nonisolated class CameraCaptureController: NSObject, AVCaptureFileOutputRe
     private(set) var latestInterruption: CameraInterruption?
 
     init(
-        storageCapacityProvider: any StorageCapacityProviding = SystemStorageCapacityProvider(),
-        thermalStateProvider: any ThermalStateProviding = SystemThermalStateProvider(),
+        storageCapacityProvider: any StorageCapacityProviding = DeviceStorageCapacityProvider(purpose: .capture),
+        thermalStateProvider: any ThermalStateProviding = DeviceThermalStateProvider(),
         storagePolicy: StorageBudgetPolicy = StorageBudgetPolicy()
     ) {
         self.storageCapacityProvider = storageCapacityProvider
@@ -499,11 +499,37 @@ final nonisolated class CameraCaptureController: NSObject, AVCaptureFileOutputRe
                 }
             }
         )
+        #if DEBUG
+            notificationTokens.append(
+                center.addObserver(forName: .deviceQACameraInterruptionBegan, object: nil, queue: nil) { [weak self] _ in
+                    Task { @MainActor [weak self] in self?.handleInterruption(.unknown) }
+                }
+            )
+            notificationTokens.append(
+                center.addObserver(forName: .deviceQACameraInterruptionEnded, object: nil, queue: nil) { [weak self] _ in
+                    Task { @MainActor [weak self] in await self?.recoverAfterInterruption() }
+                }
+            )
+            notificationTokens.append(
+                center.addObserver(forName: .deviceQAMediaServicesReset, object: nil, queue: nil) { [weak self] _ in
+                    Task { @MainActor [weak self] in
+                        guard let self else { return }
+                        latestInterruption = .mediaServicesReset
+                        DeviceQAOverrideStore.shared.recordCameraInterruption(CameraInterruption.mediaServicesReset.rawValue)
+                        state = .recovering(.mediaServicesReset)
+                        await recoverAfterInterruption()
+                    }
+                }
+            )
+        #endif
     }
 
     @MainActor
     private func handleInterruption(_ reason: CameraInterruption) {
         latestInterruption = reason
+        #if DEBUG
+            DeviceQAOverrideStore.shared.recordCameraInterruption(reason.rawValue)
+        #endif
         state = CameraRecoveryStateMachine.transition(from: state, event: .interruptionBegan(reason))
         if isRecording {
             stopRecording()

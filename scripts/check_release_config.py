@@ -101,6 +101,16 @@ def validate_archive(archive: Path) -> None:
     for key, value in expected.items():
         if info.get(key) != value:
             fail(f"archived {key} must be {value!r}, found {info.get(key)!r}")
+    executable_name = info.get("CFBundleExecutable")
+    if not isinstance(executable_name, str) or not executable_name:
+        fail("archived app does not identify its executable")
+    executable = app / executable_name
+    if not executable.is_file():
+        fail("archived app executable is missing")
+    binary = executable.read_bytes()
+    for debug_marker in (b"OBCDeviceQAEnabled", b"Device QA", b"Inject low export storage"):
+        if debug_marker in binary:
+            fail(f"DEBUG Device QA marker is present in Release binary: {debug_marker!r}")
 
 
 def main() -> None:

@@ -495,8 +495,8 @@ actor VideoExportService: RenderService {
     private let storagePolicy: StorageBudgetPolicy
 
     init(
-        storageCapacityProvider: any StorageCapacityProviding = SystemStorageCapacityProvider(),
-        thermalStateProvider: any ThermalStateProviding = SystemThermalStateProvider(),
+        storageCapacityProvider: any StorageCapacityProviding = DeviceStorageCapacityProvider(purpose: .export),
+        thermalStateProvider: any ThermalStateProviding = DeviceThermalStateProvider(),
         storagePolicy: StorageBudgetPolicy = StorageBudgetPolicy()
     ) {
         self.storageCapacityProvider = storageCapacityProvider

@@ -68,6 +68,24 @@ nonisolated protocol StorageCapacityProviding: Sendable {
     func availableCapacity(at url: URL) throws -> Int64?
 }
 
+nonisolated enum StorageCapacityPurpose: Sendable {
+    case capture
+    case export
+}
+
+nonisolated struct DeviceStorageCapacityProvider: StorageCapacityProviding {
+    let purpose: StorageCapacityPurpose
+
+    func availableCapacity(at url: URL) throws -> Int64? {
+        #if DEBUG
+            if let override = DeviceQAOverrideStore.shared.storageCapacityOverride(for: purpose) {
+                return override
+            }
+        #endif
+        return try SystemStorageCapacityProvider().availableCapacity(at: url)
+    }
+}
+
 nonisolated struct SystemStorageCapacityProvider: StorageCapacityProviding {
     func availableCapacity(at url: URL) throws -> Int64? {
         try url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
@@ -82,6 +100,17 @@ nonisolated protocol ThermalStateProviding: Sendable {
 nonisolated struct SystemThermalStateProvider: ThermalStateProviding {
     var thermalState: DeviceThermalState {
         DeviceThermalState(ProcessInfo.processInfo.thermalState)
+    }
+}
+
+nonisolated struct DeviceThermalStateProvider: ThermalStateProviding {
+    var thermalState: DeviceThermalState {
+        #if DEBUG
+            if let override = DeviceQAOverrideStore.shared.thermalStateOverride {
+                return override
+            }
+        #endif
+        return SystemThermalStateProvider().thermalState
     }
 }
 

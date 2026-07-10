@@ -36,6 +36,9 @@ class FilmSessionViewModel {
     private var backgroundTaskToken: BackgroundTaskToken = .invalid
     private var backgroundTaskExpiredExportID: UUID?
     private var didRecoverInterruptedRenders = false
+    #if DEBUG
+        private var deviceQAObserver: NSObjectProtocol?
+    #endif
 
     init(
         storage: SessionStorage = SessionStorage(),
@@ -47,6 +50,18 @@ class FilmSessionViewModel {
         self.localDataExportService = localDataExportService
         self.exportService = exportService
         self.backgroundTaskManager = backgroundTaskManager ?? ApplicationBackgroundTaskManager()
+        #if DEBUG
+            deviceQAObserver = NotificationCenter.default.addObserver(
+                forName: .deviceQAExportBackgroundExpiration,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let self, let exportID = activeExportID else { return }
+                    await interruptExportWhenBackgroundTimeExpires(exportID: exportID)
+                }
+            }
+        #endif
     }
 
     var currentPrompt: ShotPrompt? {
@@ -555,6 +570,9 @@ class FilmSessionViewModel {
             exportStatusMessage = "Export paused because this device is too hot. Your draft is safe; retry after it cools down."
             errorMessage = ExportError.criticalThermalState.localizedDescription
             showError = true
+            #if DEBUG
+                DeviceQAOverrideStore.shared.recordExportInterruption("critical_thermal_state")
+            #endif
         } catch {
             try? await storage.markRenderFailed(id: exportID, reason: String(describing: error))
             errorMessage = error.localizedDescription
@@ -652,6 +670,9 @@ class FilmSessionViewModel {
             return
         }
         backgroundTaskExpiredExportID = exportID
+        #if DEBUG
+            DeviceQAOverrideStore.shared.recordExportInterruption("background_time_expired")
+        #endif
         exportStatusMessage = "Background time ended. Pausing export safely…"
         try? await storage.markRenderInterrupted(id: exportID, reason: "background_time_expired")
         await exportService.cancelCurrentRender()

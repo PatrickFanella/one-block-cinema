@@ -53,6 +53,12 @@ struct SettingsView: View {
                 Label("No advertising or cross-app tracking", systemImage: "hand.raised.fill")
                 Label("No private media analytics", systemImage: "eye.slash.fill")
             }
+
+            #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("OBCDeviceQAEnabled") {
+                    DeviceQAPanel()
+                }
+            #endif
         }
         .scrollContentBackground(.hidden)
         .background(CinemaColors.background)
