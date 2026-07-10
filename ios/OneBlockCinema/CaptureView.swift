@@ -35,6 +35,17 @@ struct CaptureView: View {
                     compositionGuide
                     promptOverlay
 
+                    if let warning = camera.conditionWarning {
+                        Text(warning)
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .multilineTextAlignment(.center)
+                            .padding(10)
+                            .background(.black.opacity(0.82), in: RoundedRectangle(cornerRadius: 8))
+                            .padding()
+                            .frame(maxHeight: .infinity, alignment: .top)
+                    }
+
                     if isProcessing {
                         Color.black.opacity(0.55)
                         ProgressView("Saving clip…")
@@ -67,8 +78,11 @@ struct CaptureView: View {
             await camera.prepare()
         }
         .onChange(of: scenePhase) { _, phase in
-            guard phase == .active else { return }
-            Task { await camera.prepare() }
+            if phase == .active {
+                Task { await camera.activate() }
+            } else {
+                camera.suspend()
+            }
         }
         .onDisappear {
             reviewPlayer?.pause()
@@ -173,6 +187,14 @@ struct CaptureView: View {
                     icon: "camera.fill",
                     title: "Camera unavailable",
                     message: "Recording needs a compatible iPhone camera. Library import remains available."
+                )
+            case let .recovering(reason):
+                cameraMessage(icon: nil, title: "Recovering camera", message: reason.userFacingReason)
+            case let .interrupted(reason):
+                cameraMessage(
+                    icon: "exclamationmark.triangle.fill",
+                    title: "Camera paused",
+                    message: reason.userFacingReason
                 )
             case let .failed(message):
                 cameraMessage(icon: "exclamationmark.triangle.fill", title: "Camera issue", message: message, showSettings: true)

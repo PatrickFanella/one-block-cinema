@@ -9,7 +9,34 @@ nonisolated enum CameraCaptureState: Sendable, Equatable {
     case ready
     case denied
     case unavailable
+    case recovering(CameraInterruption)
+    case interrupted(CameraInterruption)
     case failed(String)
+}
+
+nonisolated enum CameraRecoveryEvent: Sendable, Equatable {
+    case interruptionBegan(CameraInterruption)
+    case interruptionEnded
+    case mediaServicesReset
+    case recoverySucceeded
+    case recoveryFailed(String)
+}
+
+nonisolated enum CameraRecoveryStateMachine {
+    static func transition(from state: CameraCaptureState, event: CameraRecoveryEvent) -> CameraCaptureState {
+        switch event {
+        case let .interruptionBegan(reason): .interrupted(reason)
+        case .interruptionEnded:
+            if case let .interrupted(reason) = state {
+                .recovering(reason)
+            } else {
+                state
+            }
+        case .mediaServicesReset: .recovering(.mediaServicesReset)
+        case .recoverySucceeded: .ready
+        case let .recoveryFailed(message): .failed(message)
+        }
+    }
 }
 
 @Observable
@@ -21,6 +48,11 @@ final nonisolated class CameraCaptureController: NSObject, AVCaptureFileOutputRe
     private var videoInput: AVCaptureDeviceInput?
     private var audioInput: AVCaptureDeviceInput?
     private var discardRecordingOnFinish = false
+    private var notificationTokens: [NSObjectProtocol] = []
+    private let storageCapacityProvider: any StorageCapacityProviding
+    private let thermalStateProvider: any ThermalStateProviding
+    private let storagePolicy: StorageBudgetPolicy
+    private var storageMonitorTask: Task<Void, Never>?
 
     private(set) var state: CameraCaptureState = .idle
     private(set) var isRecording = false
@@ -31,6 +63,25 @@ final nonisolated class CameraCaptureController: NSObject, AVCaptureFileOutputRe
     private(set) var isTorchAvailable = false
     private(set) var isTorchOn = false
     private(set) var microphoneEnabled = true
+    private(set) var conditionWarning: String?
+    private(set) var latestInterruption: CameraInterruption?
+
+    init(
+        storageCapacityProvider: any StorageCapacityProviding = SystemStorageCapacityProvider(),
+        thermalStateProvider: any ThermalStateProviding = SystemThermalStateProvider(),
+        storagePolicy: StorageBudgetPolicy = StorageBudgetPolicy()
+    ) {
+        self.storageCapacityProvider = storageCapacityProvider
+        self.thermalStateProvider = thermalStateProvider
+        self.storagePolicy = storagePolicy
+        super.init()
+        observeSessionEvents()
+    }
+
+    deinit {
+        notificationTokens.forEach(NotificationCenter.default.removeObserver)
+        storageMonitorTask?.cancel()
+    }
 
     @MainActor
     func prepare() async {
@@ -54,6 +105,7 @@ final nonisolated class CameraCaptureController: NSObject, AVCaptureFileOutputRe
             zoomFactor = 1
             state = .ready
             await startSession()
+            handleThermalChange()
         } catch CameraError.noCamera {
             state = .unavailable
         } catch {
@@ -191,6 +243,42 @@ final nonisolated class CameraCaptureController: NSObject, AVCaptureFileOutputRe
         }
     }
 
+    @MainActor
+    func suspend() {
+        latestInterruption = .appInactive
+        state = CameraRecoveryStateMachine.transition(from: state, event: .interruptionBegan(.appInactive))
+        if isRecording {
+            stopRecording()
+        }
+        sessionQueue.async { [session] in
+            if session.isRunning {
+                session.stopRunning()
+            }
+        }
+    }
+
+    @MainActor
+    func resume() async {
+        guard AVCaptureDevice.authorizationStatus(for: .video) == .authorized else {
+            state = .denied
+            return
+        }
+        let reason = latestInterruption ?? .appInactive
+        state = .recovering(reason)
+        await startSession()
+        state = .ready
+    }
+
+    @MainActor
+    func activate() async {
+        if videoInput == nil || AVCaptureDevice.authorizationStatus(for: .video) == .notDetermined {
+            state = .idle
+            await prepare()
+        } else {
+            await resume()
+        }
+    }
+
     nonisolated func fileOutput(
         _: AVCaptureFileOutput,
         didFinishRecordingTo outputFileURL: URL,
@@ -200,14 +288,27 @@ final nonisolated class CameraCaptureController: NSObject, AVCaptureFileOutputRe
         Task { @MainActor [weak self] in
             guard let self else { return }
             isRecording = false
+            storageMonitorTask?.cancel()
+            storageMonitorTask = nil
             if discardRecordingOnFinish {
                 discardRecordingOnFinish = false
                 try? FileManager.default.removeItem(at: outputFileURL)
             } else if let error {
-                try? FileManager.default.removeItem(at: outputFileURL)
-                state = .failed(error.localizedDescription)
+                let nsError = error as NSError
+                let finished = nsError.userInfo[AVErrorRecordingSuccessfullyFinishedKey] as? Bool == true
+                if finished, await Self.isPlayableRecording(outputFileURL) {
+                    capturedURL = outputFileURL
+                } else {
+                    try? FileManager.default.removeItem(at: outputFileURL)
+                    state = .failed("Recording was interrupted. Try again or import a video.")
+                }
             } else {
-                capturedURL = outputFileURL
+                if await Self.isPlayableRecording(outputFileURL) {
+                    capturedURL = outputFileURL
+                } else {
+                    try? FileManager.default.removeItem(at: outputFileURL)
+                    state = .failed("The recording could not be read. Try again or import a video.")
+                }
             }
         }
     }
@@ -215,6 +316,21 @@ final nonisolated class CameraCaptureController: NSObject, AVCaptureFileOutputRe
     @MainActor
     private func startRecording(rotationAngle: CGFloat) {
         guard !movieOutput.isRecording else { return }
+        if thermalStateProvider.thermalState == .critical {
+            conditionWarning = "This device is too hot to record. Let it cool down, then try again."
+            state = .interrupted(.systemPressure)
+            return
+        }
+        do {
+            if let available = try storageCapacityProvider.availableCapacity(at: FileManager.default.temporaryDirectory),
+               !storagePolicy.canStartCapture(availableBytes: available)
+            {
+                state = .failed("Recording needs at least 500 MB of free storage. Free space or import a clip.")
+                return
+            }
+        } catch {
+            conditionWarning = "Free storage could not be checked."
+        }
         discardRecordingOnFinish = false
         let outputURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("OneBlockCinemaCapture-\(UUID().uuidString).mov")
@@ -229,6 +345,7 @@ final nonisolated class CameraCaptureController: NSObject, AVCaptureFileOutputRe
         movieOutput.maxRecordedDuration = CMTime(seconds: VideoExportLimits.maximumDuration, preferredTimescale: 600)
         isRecording = true
         movieOutput.startRecording(to: outputURL, recordingDelegate: self)
+        monitorStorageWhileRecording()
     }
 
     @MainActor
@@ -331,6 +448,146 @@ final nonisolated class CameraCaptureController: NSObject, AVCaptureFileOutputRe
                 continuation.resume()
             }
         }
+    }
+
+    private func observeSessionEvents() {
+        let center = NotificationCenter.default
+        notificationTokens.append(
+            center.addObserver(forName: AVCaptureSession.wasInterruptedNotification, object: session, queue: nil) { [weak self] note in
+                let reason = Self.interruptionReason(from: note)
+                Task { @MainActor [weak self] in self?.handleInterruption(reason) }
+            }
+        )
+        notificationTokens.append(
+            center.addObserver(forName: AVCaptureSession.interruptionEndedNotification, object: session, queue: nil) { [weak self] _ in
+                Task { @MainActor [weak self] in await self?.recoverAfterInterruption() }
+            }
+        )
+        notificationTokens.append(
+            center.addObserver(forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: nil) { [weak self] note in
+                let error = note.userInfo?[AVCaptureSessionErrorKey] as? AVError
+                Task { @MainActor [weak self] in
+                    if error?.code == .mediaServicesWereReset {
+                        self?.state = CameraRecoveryStateMachine.transition(from: self?.state ?? .idle, event: .mediaServicesReset)
+                        self?.latestInterruption = .mediaServicesReset
+                        await self?.recoverAfterInterruption()
+                    } else if let error {
+                        self?.state = .failed(error.localizedDescription)
+                    }
+                }
+            }
+        )
+        notificationTokens.append(
+            center.addObserver(forName: ProcessInfo.thermalStateDidChangeNotification, object: nil, queue: nil) { [weak self] _ in
+                Task { @MainActor [weak self] in self?.handleThermalChange() }
+            }
+        )
+        notificationTokens.append(
+            center.addObserver(forName: AVCaptureDevice.wasDisconnectedNotification, object: nil, queue: nil) { [weak self] note in
+                guard let device = note.object as? AVCaptureDevice else { return }
+                Task { @MainActor [weak self] in
+                    guard self?.videoInput?.device.uniqueID == device.uniqueID else { return }
+                    self?.handleInterruption(.deviceDisconnected)
+                }
+            }
+        )
+        notificationTokens.append(
+            center.addObserver(forName: AVCaptureDevice.wasConnectedNotification, object: nil, queue: nil) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard self?.latestInterruption == .deviceDisconnected else { return }
+                    await self?.recoverAfterInterruption()
+                }
+            }
+        )
+    }
+
+    @MainActor
+    private func handleInterruption(_ reason: CameraInterruption) {
+        latestInterruption = reason
+        state = CameraRecoveryStateMachine.transition(from: state, event: .interruptionBegan(reason))
+        if isRecording {
+            stopRecording()
+        }
+    }
+
+    @MainActor
+    private func recoverAfterInterruption() async {
+        guard AVCaptureDevice.authorizationStatus(for: .video) == .authorized else {
+            state = .denied
+            return
+        }
+        state = CameraRecoveryStateMachine.transition(from: state, event: .interruptionEnded)
+        await startSession()
+        state = CameraRecoveryStateMachine.transition(from: state, event: .recoverySucceeded)
+    }
+
+    @MainActor
+    private func handleThermalChange() {
+        switch thermalStateProvider.thermalState {
+        case .nominal, .fair:
+            conditionWarning = nil
+        case .serious:
+            conditionWarning = "This device is getting hot. The torch was turned off."
+            turnTorchOff()
+        case .critical:
+            conditionWarning = "Camera stopped because this device is too hot. Let it cool down, then retry."
+            turnTorchOff()
+            handleInterruption(.systemPressure)
+        }
+    }
+
+    @MainActor
+    private func turnTorchOff() {
+        guard isTorchOn, let device = videoInput?.device else { return }
+        sessionQueue.async {
+            try? device.lockForConfiguration()
+            if device.isTorchActive {
+                device.torchMode = .off
+            }
+            device.unlockForConfiguration()
+            Task { @MainActor [weak self] in self?.isTorchOn = false }
+        }
+    }
+
+    @MainActor
+    private func monitorStorageWhileRecording() {
+        storageMonitorTask?.cancel()
+        storageMonitorTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2))
+                guard let self, isRecording else { return }
+                guard let available = try? storageCapacityProvider.availableCapacity(at: FileManager.default.temporaryDirectory),
+                      storagePolicy.shouldStopCapture(availableBytes: available)
+                else { continue }
+                conditionWarning = "Recording stopped because storage is nearly full."
+                stopRecording()
+                return
+            }
+        }
+    }
+
+    private static func interruptionReason(from notification: Notification) -> CameraInterruption {
+        guard let rawValue = notification.userInfo?[AVCaptureSessionInterruptionReasonKey] as? NSNumber,
+              let reason = AVCaptureSession.InterruptionReason(rawValue: rawValue.intValue)
+        else { return .unknown }
+        switch reason {
+        case .audioDeviceInUseByAnotherClient: return .audioDeviceInUse
+        case .videoDeviceInUseByAnotherClient: return .videoDeviceInUse
+        case .videoDeviceNotAvailableWithMultipleForegroundApps: return .multipleForegroundApps
+        case .videoDeviceNotAvailableDueToSystemPressure: return .systemPressure
+        case .videoDeviceNotAvailableInBackground: return .appInactive
+        case .sensitiveContentMitigationActivated: return .systemPressure
+        @unknown default: return .unknown
+        }
+    }
+
+    private static func isPlayableRecording(_ url: URL) async -> Bool {
+        let asset = AVURLAsset(url: url)
+        guard let tracks = try? await asset.loadTracks(withMediaType: .video), !tracks.isEmpty,
+              let duration = try? await asset.load(.duration)
+        else { return false }
+        let seconds = CMTimeGetSeconds(duration)
+        return seconds.isFinite && seconds > 0
     }
 
     private var isFailed: Bool {

@@ -64,6 +64,27 @@ struct DeviceConditionTests {
             Issue.record("Unexpected error: \(error)")
         }
     }
+
+    @Test func cameraRecoveryStateMachinePreservesInterruptionReason() {
+        let interrupted = CameraRecoveryStateMachine.transition(
+            from: .ready,
+            event: .interruptionBegan(.videoDeviceInUse)
+        )
+        #expect(interrupted == .interrupted(.videoDeviceInUse))
+
+        let recovering = CameraRecoveryStateMachine.transition(from: interrupted, event: .interruptionEnded)
+        #expect(recovering == .recovering(.videoDeviceInUse))
+        #expect(CameraRecoveryStateMachine.transition(from: recovering, event: .recoverySucceeded) == .ready)
+    }
+
+    @Test func cameraRecoveryStateMachineHandlesMediaServiceResetAndFailure() {
+        let recovering = CameraRecoveryStateMachine.transition(from: .ready, event: .mediaServicesReset)
+        #expect(recovering == .recovering(.mediaServicesReset))
+        #expect(
+            CameraRecoveryStateMachine.transition(from: recovering, event: .recoveryFailed("Camera unavailable"))
+                == .failed("Camera unavailable")
+        )
+    }
 }
 
 private struct FixedStorageCapacityProvider: StorageCapacityProviding {
