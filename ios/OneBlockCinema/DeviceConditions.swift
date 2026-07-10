@@ -110,7 +110,7 @@ nonisolated enum CameraInterruption: String, Sendable, Equatable {
 }
 
 nonisolated struct BackgroundTaskToken: Hashable, Sendable {
-    fileprivate let id: UUID
+    let id: UUID
 
     static let invalid = BackgroundTaskToken(id: UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)))
 }

@@ -549,6 +549,12 @@ class FilmSessionViewModel {
                 try? await storage.markRenderCancelled(id: exportID)
                 exportStatusMessage = "Export cancelled. Your draft is unchanged."
             }
+        } catch ExportError.criticalThermalState {
+            exportProgress = 0
+            try? await storage.markRenderInterrupted(id: exportID, reason: "critical_thermal_state")
+            exportStatusMessage = "Export paused because this device is too hot. Your draft is safe; retry after it cools down."
+            errorMessage = ExportError.criticalThermalState.localizedDescription
+            showError = true
         } catch {
             try? await storage.markRenderFailed(id: exportID, reason: String(describing: error))
             errorMessage = error.localizedDescription

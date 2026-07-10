@@ -536,10 +536,16 @@ actor VideoExportService: RenderService {
         exportSession.audioMix = prepared.audioMix
         exportSession.shouldOptimizeForNetworkUse = true
         activeExportSession = exportSession
+        var thermalCancellation = false
 
         let progressTask = Task {
             for await state in exportSession.states(updateInterval: 0.1) {
                 guard !Task.isCancelled else { return }
+                if thermalStateProvider.thermalState == .critical {
+                    thermalCancellation = true
+                    exportSession.cancelExport()
+                    return
+                }
                 if case let .exporting(exportProgress) = state {
                     progress(0.1 + exportProgress.fractionCompleted * 0.9)
                 }
@@ -554,9 +560,15 @@ actor VideoExportService: RenderService {
             try await exportSession.export(to: outputURL, as: .mp4)
         } catch is CancellationError {
             try? FileManager.default.removeItem(at: outputURL)
+            if thermalCancellation {
+                throw ExportError.criticalThermalState
+            }
             throw CancellationError()
         } catch {
             try? FileManager.default.removeItem(at: outputURL)
+            if thermalCancellation {
+                throw ExportError.criticalThermalState
+            }
             if Self.isOutOfSpace(error) {
                 throw ExportError.insufficientStorage(
                     requiredMegabytes: Int(storagePolicy.requiredExportBytes(duration: plan.totalDuration) / StorageBudgetPolicy.mebibyte),
