@@ -7,7 +7,9 @@ nonisolated enum FilmTheme: String, CaseIterable, Identifiable, Codable, Sendabl
     case horror
     case dream
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     var displayName: String {
         switch self {

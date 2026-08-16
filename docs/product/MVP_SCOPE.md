@@ -8,12 +8,14 @@ An iPhone app where a beginner or hobbyist can choose a film template, follow gu
 
 - 10 launch templates exist.
 - Guided prompt flow exists.
-- Import-from-library exists; real camera recording is not implemented yet.
+- Native 1080p camera recording and Photos-library import both attach clips to guided prompts; physical-device QA remains incomplete.
 - Local-first draft metadata and imported media persistence exist.
-- Preview is storyboard-style, not final video playback.
-- Export/share is a prototype AV concatenation flow.
-- Auth, backend sync, publishing, comments, challenges, and moderation are planned, not implemented.
-- Linux verification does not build or test the iOS app; use macOS/Xcode for app behavior checks.
+- User-controlled clip order and non-destructive in/out trim points persist locally and affect preview/export.
+- Cuts/pacing-aware crossfades, clip title overlays, source-audio levels, and standard/silent-film looks use the same preview/export render path.
+- Preview is real AVPlayer playback driven by the same normalized render plan as export.
+- Export/share produces a cancellable, template-aspect MP4 with progress, disk checks, audio preservation, and a 180-second cap; media-fixture/device QA remains incomplete.
+- Auth/sync/community are not connected to the iOS app. Credential-free API, worker, RLS, and moderation-console foundations exist with community flags off.
+- Linux verification checks backend/schema contracts but does not build or test the iOS app; use macOS/Xcode for app behavior checks.
 
 ## In scope
 
@@ -33,14 +35,14 @@ An iPhone app where a beginner or hobbyist can choose a film template, follow gu
 
 ### Capture/import
 
-- MVP decision: import-first. Users add clips from the iOS photo library.
+- Users can record with the guided AVFoundation camera or import from the iOS photo library.
 - Tag clips to template prompts.
 - Save drafts locally for offline work.
 
 ### Assembly/export
 
-- Arrange clips into template order.
-- Basic trim/reorder where supported.
+- Start from template order and rearrange clips explicitly.
+- Set non-destructive in/out trim points.
 - Preview final short.
 - Export/share final video.
 - Hard cap: 180 seconds.
@@ -58,7 +60,6 @@ An iPhone app where a beginner or hobbyist can choose a film template, follow gu
 ## Out of scope
 
 - AI critique/feedback.
-- Real in-app camera recording, camera permission flows, cinematic viewfinder overlays, and device camera QA.
 - Paid subscriptions or freemium template gates.
 - Desktop/web editor.
 - Professional editing suite features.
@@ -82,6 +83,6 @@ An iPhone app where a beginner or hobbyist can choose a film template, follow gu
 ## Risks
 
 - Auth + sync + community + offline export may be too large for first implementation pass.
-- Current generated app promises real camera/edit/export behavior that is only partly implemented; camera recording is explicitly post-MVP unless a later issue changes scope.
+- Camera and export now have production-shaped foundations, but physical-device and mixed-media fixture QA remain release gates.
 - Community and mixed-content safety require policy and moderation before launch.
 - Template count of 10 may slow launch unless template format is simple and data-driven.

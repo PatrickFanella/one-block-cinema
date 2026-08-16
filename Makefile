@@ -1,21 +1,50 @@
 SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 
-.PHONY: help verify fmt lint test docs-check templates-check open-pilot-check secrets-check xcode-note
+# Codex and some launchd shells omit Homebrew's Apple Silicon prefix. Node 22
+# is keg-only, so include its versioned opt path for pnpm-backed checks.
+export PATH := /opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:$(PATH)
+
+.PHONY: help verify fmt lint test ios-build ios-test ios-device-qa archive-check docs-check templates-check privacy-check release-config-check migrations-check backend-check open-pilot-check secrets-check xcode-note
 
 help: ## Show commands
 	@awk 'BEGIN {FS = ":.*##"; printf "Commands:\n"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-verify: fmt lint test docs-check templates-check open-pilot-check secrets-check xcode-note ## Run all checks
+verify: fmt lint test docs-check templates-check privacy-check release-config-check migrations-check backend-check open-pilot-check secrets-check xcode-note ## Run all checks
 
 fmt: ## Format files where repo tooling is available
-	@echo 'skip fmt: no Swift formatter configured yet'
+	@if command -v swiftformat >/dev/null 2>&1; then \
+		swiftformat --lint ios/OneBlockCinema ios/OneBlockCinemaTests ios/OneBlockCinemaUITests; \
+	else \
+		echo 'skip fmt: install SwiftFormat to run the configured check'; \
+	fi
 
 lint: ## Run lightweight lint checks
-	@echo 'skip lint: no Swift linter configured yet'
+	@if command -v swiftlint >/dev/null 2>&1; then \
+		swiftlint lint --strict; \
+	else \
+		echo 'skip lint: install SwiftLint to run the configured check'; \
+	fi
 
 test: ## Run deterministic tests available on this host
-	@echo 'skip tests: Xcode tests require macOS runner'
+	@if command -v xcodebuild >/dev/null 2>&1; then \
+		$(MAKE) ios-build; \
+	else \
+		echo 'skip tests: Xcode tests require a macOS runner'; \
+	fi
+
+ios-build: ## Compile the app and all test bundles without signing
+	@xcodebuild build-for-testing -project ios/OneBlockCinema.xcodeproj -scheme OneBlockCinema -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO
+
+ios-test: ## Execute tests on the first available iPhone simulator
+	@scripts/xcode_test.sh
+
+ios-device-qa: ## Build, install, and launch DEBUG QA on a locally configured iPhone
+	@scripts/xcode_device_qa.sh
+
+archive-check: ## Create an unsigned archive to validate release packaging
+	@xcodebuild archive -project ios/OneBlockCinema.xcodeproj -scheme OneBlockCinema -destination 'generic/platform=iOS' -archivePath build/OneBlockCinema.xcarchive CODE_SIGNING_ALLOWED=NO
+	@python3 scripts/check_release_config.py --archive build/OneBlockCinema.xcarchive
 
 docs-check: ## Verify required docs exist
 	@test -f README.md
@@ -27,9 +56,33 @@ docs-check: ## Verify required docs exist
 	@test -f docs/product/MVP_SCOPE.md
 	@test -f docs/technical/API_SPEC.md
 	@test -f docs/codebase/STACK.md
+	@test -f docs/codebase/DEVICE_QUALIFICATION.md
+	@test -f docs/legal/PRIVACY_POLICY.md
+	@test -f docs/legal/TERMS.md
+	@test -f docs/legal/SUPPORT.md
+	@test -f docs/legal/RETENTION_SCHEDULE.md
+	@test -f docs/legal/APP_STORE_PRIVACY.md
+	@test -f docs/runbooks/ACCOUNT_DELETION.md
+	@test -f docs/technical/ACCESSIBILITY.md
 
 templates-check: ## Validate product template data
 	@python3 scripts/validate_templates.py
+
+privacy-check: ## Validate the bundled Apple privacy manifest
+	@python3 scripts/check_privacy_manifest.py
+
+release-config-check: ## Validate credential-free Release and feature settings
+	@python3 scripts/check_release_config.py
+
+migrations-check: ## Validate required tables and RLS coverage
+	@python3 scripts/check_migrations.py
+
+backend-check: ## Typecheck and test backend/console workspaces when pnpm is available
+	@if command -v pnpm >/dev/null 2>&1; then \
+		pnpm check; \
+	else \
+		echo 'skip backend-check: install pnpm to typecheck TypeScript workspaces'; \
+	fi
 
 open-pilot-check: ## Verify Open Pilot templates exist
 	@test -f .gitea/ISSUE_TEMPLATE/open-pilot-task.yaml
@@ -44,4 +97,8 @@ secrets-check: ## Check for common committed secret filenames
 	fi
 
 xcode-note: ## Explain iOS verification status on non-macOS runners
-	@echo 'iOS/Xcode tests are not part of Linux make verify yet; add xcodebuild checks when macOS runner is available.'
+	@if command -v xcodebuild >/dev/null 2>&1; then \
+		echo 'iOS test bundles compiled; run make ios-test with a healthy CoreSimulator service to execute them.'; \
+	else \
+		echo 'iOS/Xcode tests require the macOS CI job; Linux verification covers repository contracts.'; \
+	fi

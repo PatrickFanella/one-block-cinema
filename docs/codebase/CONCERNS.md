@@ -4,29 +4,30 @@
 
 - Focused audit: `docs/codebase/GENERATED_APP_AUDIT.md` documents implemented, partial, missing, and overpromised behavior with file references and P0 blockers.
 - Generated app is not production complete.
-- Camera path appears placeholder-like and is cut from MVP in favor of import-first capture.
-- Preview/export UI may overpromise compared with actual export behavior.
-- Edit styles, transitions, title cards, trimming, and reorder UX need validation.
-- Template count of 10 needs data-driven implementation to avoid hardcoded sprawl.
+- Camera capture now has permission recovery, interruption/reset/device-connection recovery, storage and thermal policies, safe partial-file validation, scene suspension, and import fallback. Physical-device rotation, focus, stabilization, audio, and injected-condition qualification remain outstanding.
+- Preview and export share one custom Core Image compositor and durable interruption checkpoints. Generated fixtures verify mixed orientation, title/intertitle pixels, silent treatment, project audio, HDR-to-SDR Rec.709, VFR-to-30-fps output, corrupt media, background expiration, cancellation, and retry. The iPhone qualification checklist remains outstanding.
+- Durable trim/reorder, cuts/crossfades, clip titles, standalone intertitles, project voiceover/ambient tracks, and standard/silent-film looks now feed preview and export, but need physical-device accessibility and representative-media validation.
+- Ten templates now load from a versioned bundled catalog; editorial, device, and accessibility QA remain incomplete.
+- Core screens now respect Reduce Motion/Transparency and expose improved Dynamic Type, VoiceOver, and keyboard behavior; physical-device assistive-technology, contrast, Voice Control, pseudolocalization, and right-to-left audits remain release gates.
 
 ## Architecture risks
 
-- Draft persistence now uses app-support metadata/media storage, but still stores absolute file URLs; relative-path hardening is documented in `docs/technical/DRAFT_PERSISTENCE.md`.
-- Sync/community/auth will require backend architecture not yet implemented.
+- Draft persistence now uses GRDB, relative paths, missing-media routing, and conservative orphan cleanup; low-storage interruption policy and support tooling for unreadable legacy records remain incomplete.
+- Backend/RLS/service boundaries exist, but iOS auth, resumable media sync, environment provisioning, and operational validation are not implemented.
+- The privacy manifest matches the local-only build; legal documents still contain owner/contact/retention placeholders and connected features require a new disclosure review.
 - Offline editing plus conflict-safe sync is non-trivial.
 - Moderation and age gating must exist before mixed public community launch.
 
 ## Verification gaps
 
-- Unit tests cover template/prompt/session basics, but do not yet cover media import/export, persistence migration, or UI behavior.
-- No Swift lint/format config.
+- Simulator tests cover templates, project lifecycle, persistence/migration/recovery, edit/render plans, mixed-orientation/project-audio MP4 output, overlays, silent treatment, HDR/VFR normalization, corrupt media, export recovery, local data export/deletion, and sync conflict/outbox behavior. Hardware-dependent behavior still requires the documented iPhone qualification.
+- SwiftFormat and strict SwiftLint pass with zero violations; both tools must be installed for local checks and remain required on the macOS CI runner.
 - Linux baseline cannot run Xcode tests.
 
 ## Suggested first issues
 
-1. Add unit tests for prompt generation and session lifecycle.
-2. Implement and verify import-first prompt clip attachment.
-3. Define launch template schema and first 10 templates.
-4. Replace or clearly disable placeholder camera UX until a post-MVP camera issue.
-5. Replace placeholder preview/export UX with verified behavior.
-6. Draft backend/auth/sync architecture before community implementation.
+1. Run camera/import prompt attachment on the oldest supported iPhone and representative modern devices.
+2. Verify all 10 templates end-to-end with representative media and device accessibility QA.
+3. Add deterministic camera interruption and low-storage recovery tests.
+4. Complete and record the iPhone 16 Plus qualification without identifiers or private media.
+5. Connect native auth and project sync only after disposable-environment RLS tests pass.

@@ -10,10 +10,14 @@
 - `.gitea/` — Open Pilot issue/PR/workflow templates.
 - `docs/` — product, technical, and codebase docs.
 - `ios/` — generated native iOS app.
+- `backend/` — Fastify API, pg-boss worker, Zod contracts, tests, and Fly container configuration.
+- `moderation-console/` — admin-role Next.js moderation queue.
+- `supabase/` — local Supabase configuration and ordered SQL migrations.
 
 ## Product content
 
-- `docs/product/templates/` — production-shaped launch template data and template field requirements.
+- `ios/OneBlockCinema/Resources/FilmTemplates.json` — the single bundled catalog of 10 production templates.
+- `ios/OneBlockCinema/Resources/FilmTemplateV1.schema.json` — the versioned machine-readable template contract.
 
 ## iOS app
 
@@ -29,6 +33,7 @@
 - `HomeView.swift` — template/session start.
 - `ShotSequenceView.swift` — prompt sequence guidance.
 - `CaptureView.swift` — clip capture/import screen.
+- `CameraCapture.swift` — AVFoundation session, recording controls, permission recovery, and preview-layer bridge.
 - `AssemblyView.swift` — assembly/timeline screen.
 - `PreviewExportView.swift` — preview/export screen.
 - `MyFilmsView.swift` — saved session gallery.
@@ -36,11 +41,17 @@
 ## Domain/service files
 
 - `FilmSession.swift`, `FilmClip.swift`, `ShotPrompt.swift` — core data models.
+- `ProductionDomain.swift` — product-facing type aliases plus sync, edit, publication, challenge, safety, and critique contracts.
+- `ServiceContracts.swift` — repository/service boundaries for templates, projects, media, rendering, auth, sync, community, critique, and analytics.
+- `Config.swift` — fail-closed public environment and client feature configuration.
+- `PrivacyInfo.xcprivacy` — local-only Apple privacy manifest.
 - `FilmTheme.swift`, `PacingStyle.swift`, `EditStyle.swift` — domain options.
 - `FilmSessionViewModel.swift` — workflow state hub.
 - `PromptGenerator.swift` — theme prompt generation.
-- `SessionStorage.swift` — local persistence.
-- `VideoExportService.swift` — AVFoundation export.
+- `SessionStorage.swift` — GRDB local persistence, media ownership, recovery records, and durable sync outbox.
+- `ProjectAudioTrack.swift` / `VoiceoverRecorder.swift` — relative-path project audio persistence, local voiceover capture, and ambient/voiceover edit decisions.
+- `RenderRecoveryStorage.swift` — durable local export checkpoints and relaunch interruption recovery.
+- `VideoExportService.swift` — shared render planning, AVPlayer composition building, orientation normalization, and cancellable AVFoundation export.
 
 ## UI utility files
 

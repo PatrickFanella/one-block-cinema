@@ -1,0 +1,56 @@
+included:
+  - ios/OneBlockCinema
+  - ios/OneBlockCinemaTests
+  - ios/OneBlockCinemaUITests
+
+excluded:
+  - ios/OneBlockCinema/Assets.xcassets
+
+disabled_rules:
+  # SwiftFormat deliberately places braces on a new line for wrapped conditions.
+  - opening_brace
+  - todo
+  - trailing_comma
+
+opt_in_rules:
+  - empty_count
+  - empty_string
+  - first_where
+  - sorted_imports
+
+line_length:
+  warning: 180
+  error: 240
+  ignores_comments: true
+  ignores_urls: true
+
+file_length:
+  warning: 800
+  error: 1000
+
+type_body_length:
+  warning: 650
+  error: 800
+
+function_body_length:
+  warning: 150
+  error: 200
+
+cyclomatic_complexity:
+  warning: 15
+  error: 20
+
+function_parameter_count:
+  warning: 9
+  error: 10
+
+large_tuple:
+  warning: 3
+  error: 4
+
+identifier_name:
+  min_length: 2
+  excluded:
+    - id
+    - x
+    - y

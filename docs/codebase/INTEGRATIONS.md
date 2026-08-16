@@ -3,25 +3,26 @@
 ## Current app integrations
 
 - Photos/library import through iOS media APIs.
+- AVFoundation camera capture with front/rear cameras, focus/exposure, torch, zoom, stabilization, microphone control, and retake review.
 - AVFoundation video export.
 - Native share sheet/export handoff.
-- Local app-support persistence for draft metadata and imported media, with legacy `UserDefaults` migration.
+- GRDB SQLite persistence for draft metadata and relative app-support media paths, with legacy JSON/`UserDefaults` migration and recovery records.
+- Fastify API contracts, pg-boss worker queues, Supabase schema/RLS, and an admin-role moderation console are implemented as inactive infrastructure foundations.
 
-## Planned MVP integrations
+## Configured later with server-only credentials
 
 - Email OTP auth.
 - Google auth.
 - Apple auth.
-- Backend sync for projects, drafts, profiles, comments, and challenge activity.
-- Community moderation/reporting service.
+- Supabase sync for projects, drafts, profiles, comments, and challenge activity.
+- Mux direct uploads, signed playback, and processing webhooks.
+- Automated moderation and external account/media cleanup workers.
 - Social share/export destinations through platform share sheet first.
 
 ## Post-MVP integrations
-
-- Real in-app camera recording through iOS camera APIs.
 - AI critique provider wrapper.
 - Advanced analytics, if privacy-safe.
-- Web/admin tooling for moderation.
+- The admin console exists; operational SSO, hosting, and moderator drills remain future activation work.
 
 ## Guardrails
 

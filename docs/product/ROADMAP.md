@@ -1,72 +1,77 @@
-# Roadmap
+# Production Roadmap
 
-## Phase 0: Alignment and scaffolding
+## 0.1 Internal alpha — offline creator
 
-- Align docs with actual codebase and MVP decisions.
-- Define launch template schema and map it to Swift models.
-- Adopt import-first capture for the MVP milestone.
-- Remove, disable, or clearly label placeholder camera/export/editor paths.
-- Add basic unit tests for session lifecycle and prompt generation.
-- Keep `make verify` passing on Linux.
+Implemented foundations:
 
-## Phase 1: Core foundations
+- Deterministic portable/macOS CI, zero-violation check-only SwiftFormat/SwiftLint, executed simulator unit/UI smoke tests, unsigned archive validation, and Fastlane release lanes.
+- Ten versioned, schema-validated bundled templates.
+- GRDB projects/clips, relative media paths, idempotent legacy migration, missing-media recovery records, and durable sync outbox.
+- My Films identifies missing source clips, routes directly to replacement capture/import, and safely reclaims stale unreferenced media after an in-flight grace period.
+- Durable render checkpoints, an iOS background execution window, and relaunch recovery keep interrupted exports visible and retryable without mutating the draft.
+- Real AVPlayer preview and cancellable, orientation-normalized 1080p-class MP4 export from one `RenderPlan` with audio preservation, disk checks, and the 180-second cap.
+- Self-generated AVFoundation fixtures execute mixed-orientation H.264 export with intertitles and looping project audio, inspect the encoded MP4, and verify corrupt media produces an actionable failure.
+- Import-first fallback remains fully offline and account-free.
 
-- Template selection and project creation.
-- Data-driven prompt sequences.
-- Local draft persistence.
-- Import clips from library.
-- Basic assembly screen with reorder/trim scope defined.
-- Local preview/export flow.
+Remaining gates:
 
-## Phase 2: Minimal end-to-end slice
+- Complete the documented iPhone 16 Plus camera, lifecycle, storage, thermal, HDR/VFR, and export-recovery qualification.
+- Verify all templates end to end on physical devices.
 
-- Import-first or verified capture flow.
-- One template-driven project can move from prompts to clips to assembly.
-- Preview/export/share path is documented and verified.
-- Unsupported editor/export claims are removed or clearly labeled.
-- First E2E verification notes exist.
+## 0.5 External TestFlight — filmmaking toolkit
 
-## Phase 3: Feature expansion
+Implemented foundation:
 
-- Ten launch templates.
-- Template-defined aspect ratios and duration targets.
-- Template picker and scoped reorder/trim editing.
-- Backend architecture for auth, sync, and community contracts.
-- Email OTP auth.
-- Google/Apple auth.
-- Profile editing.
-- Sync projects/drafts/profile.
-- Conflict handling for offline edits.
-- Community API contracts for challenges, comments, and feedback.
+- AVFoundation 1080p camera recording, front/rear cameras, tap focus/exposure, torch, bounded zoom, automatic stabilization, microphone control, prompt/aspect overlays, rotation, a 180-second recording cap, retake review, Settings recovery, and equal Photos import.
+- Non-destructive in/out trim points and user-controlled clip order persist in GRDB and drive the shared preview/export render plan.
+- Straight cuts and pacing-aware crossfades, clip title overlays, per-clip source-audio levels, and selectable standard/silent-film looks render identically in preview and export.
+- Local voiceover recording/import, user-provided ambient beds, per-track volume, ambient looping, and silent-look muting persist with relative paths and feed the shared preview/export mix.
+- Standalone intertitle cards can be placed between clips, persist non-destructively, render as full-screen timeline items, and count toward the 180-second cap.
+- Reduced-motion/transparency behavior, scalable template/shot layouts, action-oriented VoiceOver labels and values, 44-point shot navigation targets, keyboard dismissal, and accessibility-size UI smoke coverage.
 
-## Phase 4: Quality hardening
+Remaining:
 
-- Publish flow with private-until-publish defaults.
-- Daily/weekly challenges.
-- Comments and peer feedback.
-- Reports, automated filters, and manual moderation queue.
-- Age gating for mixed content.
-- Offline mode recovery.
-- Core model/viewmodel/export test coverage.
-- Privacy-safe analytics/observability design.
+- Physical-device intertitle, audio-mix, and voiceover QA.
+- Physical-device VoiceOver, contrast, Voice Control, Full Keyboard Access, pseudolocalization/right-to-left, and oldest-device audits.
 
-## Phase 5: Release and operations
+## 1.0 Creator launch — accounts and sync
 
-- Privacy/safety copy.
-- App Store screenshots/copy.
-- Analytics for completion, export, retention, and community feedback.
-- QA on device permissions, offline mode, and failed exports.
-- Release checklist and operations runbooks.
+Implemented foundation:
 
-## Phase 6: Post-launch polish
+- Provider-neutral auth/sync/community protocols, revision state, non-destructive recovered-copy conflict policy, Fastify API, pg-boss worker, Supabase schema/RLS, private storage policies, and environment/deployment runbook.
+- Fail-closed iOS environment/feature configuration, a validated local-only Apple privacy manifest, and draft privacy, terms, support, retention, and App Store disclosure artifacts.
+- A retry-safe account-deletion worker removes private Supabase Storage data and Mux assets before Auth deletion, retains durable audit status, and blocks Apple accounts until revocation is available.
+- Settings exposes a user-controlled, human-readable export of all local project metadata, edit decisions, and preserved recovery issues without exposing absolute media paths or duplicating source media.
+- A separately confirmed local-data deletion control removes all drafts, app-owned media, recovery records, interrupted renders, and pending sync operations without requiring an account.
 
-- AI critique/coach feedback remains post-MVP.
-- More templates and creator packs.
-- Advanced editing effects.
-- Web/admin tooling.
-- Real in-app camera recording and cinematic viewfinder overlays.
-- Monetization experiments if desired.
+Remaining:
 
-## Post-MVP
+- Provision separate development/staging/production Supabase and Fly environments.
+- Connect native OTP/Apple/Google auth and Keychain session storage.
+- Build opt-in project/original-media sync with resumable checksummed transfer and visible retry state.
+- Complete profile, cloud-account data export, logout/session revocation, native deletion UX, Sign in with Apple revocation, approve/finalize legal placeholders, backups, restore drills, rate limits, abuse protection, observability, and remaining incident runbooks.
+- Ship with community flags disabled.
 
-- See Phase 6.
+## 1.1 Community — curated challenges
+
+Implemented foundation:
+
+- RLS tables/policies for challenges, publications, comments, reports, reciprocal blocks, teen-private safety data, moderation queues/actions, feature flags, signed Mux webhook verification, and an admin-role moderation console.
+
+Remaining:
+
+- Mux direct upload/signed playback, frame/audio extraction, automated text/image moderation, manual review operations, APNs, appeals/takedowns, staffing, and staged rollout drills.
+- The community flag remains off until all safety and App Review gates pass.
+
+## 1.2 AI Coach — explicit opt-in
+
+Only provider-neutral types and a disabled endpoint exist. Provider credentials and calls are intentionally unconfigured. Consent UX, minimized media sampling, moderation, structured critique, retention controls, evals, safety review, cost/latency thresholds, and staged rollout all remain required.
+
+## Release thresholds
+
+- No open P0/P1 security or data-loss defects.
+- At least 14 stable TestFlight days with 50 external testers.
+- Crash-free sessions at least 99.5%; supported-media export success at least 98%.
+- API availability at least 99.9% with non-media p95 below 500 ms.
+- Publication processing success at least 99% with p95 below five minutes.
+- Successful backup/restore rehearsal and exercised privacy, moderation, support, App Review, and incident runbooks.

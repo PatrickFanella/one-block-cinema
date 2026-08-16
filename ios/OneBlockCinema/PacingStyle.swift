@@ -3,9 +3,11 @@ import Foundation
 nonisolated enum PacingStyle: String, CaseIterable, Identifiable, Codable, Sendable {
     case quickCuts = "quick_cuts"
     case slowCinema = "slow_cinema"
-    case rhythmic = "rhythmic"
+    case rhythmic
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     var displayName: String {
         switch self {

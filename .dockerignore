@@ -1,0 +1,14 @@
+.git
+.env
+.env.*
+node_modules
+**/node_modules
+**/dist
+**/.next
+build
+coverage
+ios
+docs
+supabase
+moderation-console/**
+!moderation-console/package.json

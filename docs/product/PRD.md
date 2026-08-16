@@ -24,7 +24,7 @@ Help users plan, import clips, assemble, export, share, and get feedback on temp
 1. Login with email OTP plus Google/Apple.
 2. Ten film templates at launch.
 3. Step-by-step guided workflow from idea/template to shot sequence.
-4. Import clips from the phone library and attach them to guided prompts.
+4. Record or import clips and attach them to guided prompts.
 5. Assemble clips into template-driven shorts up to 180 seconds.
 6. Export/share to social platforms.
 7. Offline editing/export.
@@ -38,7 +38,6 @@ Help users plan, import clips, assemble, export, share, and get feedback on temp
 - Paid subscriptions or gated templates.
 - Desktop/web editing.
 - Advanced color grading, audio mixing, or professional NLE features.
-- Real in-app camera recording for the MVP milestone.
 - Marketplace/community monetization.
 
 ## Default creation flow
@@ -47,7 +46,7 @@ Help users plan, import clips, assemble, export, share, and get feedback on temp
 2. User selects a template/challenge.
 3. App explains structure and target duration/aspect ratio.
 4. App presents shot-by-shot prompts.
-5. User imports each clip from the phone library.
+5. User records each clip with guided camera overlays or imports it from the phone library.
 6. User reviews assembly, reorders/trims where supported.
 7. App previews final short.
 8. User exports locally, shares externally, or publishes to community.
@@ -60,7 +59,7 @@ Help users plan, import clips, assemble, export, share, and get feedback on temp
 - Template records are bundled for offline local use; created projects snapshot the prompts and guidance needed to resume without network access.
 - Contract: `docs/technical/TEMPLATE_SCHEMA.md`.
 - Output length depends on template but must not exceed 180 seconds in v1.
-- First production-shaped vertical-slice template: [`First Block Story`](templates/first-block-story.json), a 9:16 beginner micro-documentary with a 60–120 second duration target.
+- First production-shaped vertical-slice template: `First Block Story` in the bundled [`FilmTemplates.json`](../../ios/OneBlockCinema/Resources/FilmTemplates.json), a 9:16 beginner micro-documentary with a 60–120 second duration target.
 
 ## Community model
 
@@ -108,4 +107,4 @@ Help users plan, import clips, assemble, export, share, and get feedback on temp
 
 ## Closed product decisions
 
-- MVP capture strategy: import-first; real in-app camera recording is post-MVP. See `docs/adr/0002-import-first-capture-mvp.md`.
+- Camera and Photos import are equal production capture paths. See `docs/adr/0003-camera-and-import-parity.md`.
