@@ -2,10 +2,29 @@ name: iOS check
 
 on:
   push:
+    branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
+  runner-availability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require an eligible native runner
+        env:
+          NATIVE_RUNNER_ENABLED: ${{ vars.IOS_RUNNER_ENABLED }}
+        run: |
+          if [ "$NATIVE_RUNNER_ENABLED" != 'true' ]; then
+            echo "::error::Native qualification is unavailable. Register macos-latest for this repository, verify its toolchain, then set IOS_RUNNER_ENABLED=true. Linux checks do not replace this gate."
+            exit 1
+          fi
+
   verify-ios:
+    if: vars.IOS_RUNNER_ENABLED == 'true'
+    timeout-minutes: 30
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
